@@ -4,6 +4,11 @@ export type Period = "first" | "second";
 
 export type ThemeMode = "light" | "dark";
 
+export type PaymentRates = {
+  fullDay: number;
+  halfDay: number;
+};
+
 export type PeriodData = Record<number, DayStatus>;
 
 export type MonthData = {

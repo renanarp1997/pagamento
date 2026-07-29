@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { AppShell } from "@/components/AppShell";
+import { OnboardingScreen } from "@/components/OnboardingScreen";
 import { DayCard } from "@/components/DayCard";
 import { DownloadIcon } from "@/components/icons";
 import { ExportModal } from "@/components/ExportModal";
@@ -9,11 +10,11 @@ import { MonthSelector } from "@/components/MonthSelector";
 import { PeriodSelector } from "@/components/PeriodSelector";
 import { StatsChart } from "@/components/StatsChart";
 import { SummaryCard } from "@/components/SummaryCard";
-import { FULL_DAY_VALUE, HALF_DAY_VALUE } from "@/lib/constants";
 import { getCalendarLeadingBlanks, getPeriodDays, getWeekdayIndex, WEEKDAY_ABBR, WEEKDAY_NAMES } from "@/lib/date";
 import { formatCurrency } from "@/lib/format";
 import { summarizePeriod } from "@/lib/payments";
 import { useMonthPayment } from "@/hooks/useMonthPayment";
+import { usePaymentSettings } from "@/hooks/usePaymentSettings";
 import type { Period } from "@/types/payment";
 
 export default function Home() {
@@ -23,10 +24,11 @@ export default function Home() {
   const [period, setPeriod] = useState<Period>(today.getDate() <= 15 ? "first" : "second");
   const [exportOpen, setExportOpen] = useState(false);
   const { data, cycleDay, setDays, clearDays } = useMonthPayment(year, month);
+  const { rates, isConfigured, save } = usePaymentSettings();
 
   const days = useMemo(() => getPeriodDays(year, month, period), [year, month, period]);
   const periodData = data[period];
-  const summary = useMemo(() => summarizePeriod(periodData, days.length), [periodData, days.length]);
+  const summary = useMemo(() => summarizePeriod(periodData, days.length, rates), [periodData, days.length, rates]);
   const leadingBlanks = useMemo(() => getCalendarLeadingBlanks(year, month, days[0] ?? 1), [days, month, year]);
   const weeklyCounts = useMemo(() => getWorkedByWeekday(year, month, periodData), [month, periodData, year]);
 
@@ -36,22 +38,29 @@ export default function Home() {
     setDays(period, matchingDays, "V");
   }
 
+  if (!isConfigured) {
+    return <OnboardingScreen onComplete={save} />;
+  }
+
   return (
     <AppShell>
       <section className="grid gap-5 lg:grid-cols-[1fr_340px]">
         <div className="flex min-w-0 flex-col gap-6">
-          <section className="rounded-3xl border border-slate-200 bg-white/95 p-5 shadow-soft backdrop-blur dark:border-slate-800 dark:bg-slate-900/95 sm:p-6">
+          <section className="relative overflow-hidden rounded-[28px] bg-slate-950 p-6 text-white shadow-[0_24px_70px_rgba(15,23,42,0.18)] dark:bg-white dark:text-slate-950 sm:p-8">
+            <div className="pointer-events-none absolute -right-16 -top-24 h-64 w-64 rounded-full bg-teal-400/20 blur-3xl" />
             <div className="flex flex-wrap items-end justify-between gap-4">
-              <div>
-                <p className="text-sm font-black uppercase tracking-[0.2em] text-teal-700 dark:text-teal-300">Total da quinzena</p>
-                <p className="mt-2 text-5xl font-black tracking-normal text-slate-950 dark:text-white sm:text-6xl">{formatCurrency(summary.total)}</p>
+              <div className="relative">
+                <p className="text-sm font-bold text-slate-400 dark:text-slate-500">Você irá receber</p>
+                <p key={summary.total} className="total-pop mt-2 text-5xl font-black tracking-[-0.045em] sm:text-7xl">{formatCurrency(summary.total)}</p>
+                <p className="mt-2 text-sm font-medium text-slate-400 dark:text-slate-500">Pagamento estimado para esta quinzena</p>
               </div>
-              <div className="rounded-2xl bg-slate-100 px-4 py-3 text-right text-sm font-black text-slate-700 dark:bg-slate-800 dark:text-slate-200">
-                {summary.workedDays}/{summary.totalDays} dias
+              <div className="relative rounded-2xl border border-white/10 bg-white/10 px-5 py-4 text-right backdrop-blur dark:border-slate-200 dark:bg-slate-100">
+                <p className="text-3xl font-black text-teal-300 dark:text-teal-700">{summary.workedPercentage}%</p>
+                <p className="mt-1 text-xs font-bold text-slate-400 dark:text-slate-500">{summary.workedDays} de {summary.totalDays} dias</p>
               </div>
             </div>
-            <div className="mt-5 h-3 overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800">
-              <div className="h-full rounded-full bg-gradient-to-r from-teal-500 to-emerald-400 transition-all duration-500" style={{ width: `${summary.workedPercentage}%` }} />
+            <div className="relative mt-7 h-2 overflow-hidden rounded-full bg-white/10 dark:bg-slate-200">
+              <div className="h-full rounded-full bg-gradient-to-r from-teal-400 to-emerald-400 transition-all duration-700 ease-out" style={{ width: `${summary.workedPercentage}%` }} />
             </div>
           </section>
 
@@ -72,8 +81,8 @@ export default function Home() {
               </button>
             </div>
             <div className="mt-4 grid gap-2 border-t border-slate-200 pt-4 text-sm font-bold text-slate-600 dark:border-slate-800 dark:text-slate-300 sm:grid-cols-3">
-              <LegendItem color="bg-emerald-500" label="V - Dia inteiro" value="R$94" />
-              <LegendItem color="bg-amber-300" label="M - Meio periodo" value="R$45" />
+              <LegendItem color="bg-emerald-500" label="V - Dia inteiro" value={formatCurrency(rates.fullDay)} />
+              <LegendItem color="bg-amber-300" label="M - Meio periodo" value={formatCurrency(rates.halfDay)} />
               <LegendItem color="bg-slate-200 dark:bg-slate-700" label="Folga" value="R$0" />
             </div>
           </section>
@@ -98,7 +107,7 @@ export default function Home() {
               ))}
 
               {days.map((day) => (
-                <DayCard key={day} day={day} month={month} year={year} status={periodData[day] ?? "O"} onClick={() => cycleDay(period, day)} />
+                <DayCard key={`${day}-${periodData[day] ?? "O"}`} day={day} month={month} year={year} status={periodData[day] ?? "O"} rates={rates} onClick={() => cycleDay(period, day)} />
               ))}
             </div>
           </section>
@@ -106,8 +115,8 @@ export default function Home() {
           <section className="rounded-3xl border border-slate-200 bg-white/90 p-5 shadow-lg shadow-slate-900/5 dark:border-slate-800 dark:bg-slate-900/90 lg:hidden">
             <p className="text-sm font-black uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">Calculo</p>
             <div className="mt-4 grid gap-3 sm:grid-cols-3">
-              <MobileMetric label="Inteiros" value={summary.fullDays} detail={`${summary.fullDays} x R$${FULL_DAY_VALUE}`} total={formatCurrency(summary.fullTotal)} />
-              <MobileMetric label="Meios" value={summary.halfDays} detail={`${summary.halfDays} x R$${HALF_DAY_VALUE}`} total={formatCurrency(summary.halfTotal)} />
+              <MobileMetric label="Inteiros" value={summary.fullDays} detail={`${summary.fullDays} × ${formatCurrency(rates.fullDay)}`} total={formatCurrency(summary.fullTotal)} />
+              <MobileMetric label="Meios" value={summary.halfDays} detail={`${summary.halfDays} × ${formatCurrency(rates.halfDay)}`} total={formatCurrency(summary.halfTotal)} />
               <MobileMetric label="Folgas" value={summary.daysOff} detail="R$0" total={`${summary.workedPercentage}%`} />
             </div>
             <WeeklyWorkedCounts counts={weeklyCounts} className="mt-5" />
@@ -131,9 +140,9 @@ export default function Home() {
           ) : null}
         </div>
 
-        <SummaryCard summary={summary} weeklyCounts={weeklyCounts} className="hidden lg:block lg:sticky lg:top-6" />
+        <SummaryCard summary={summary} rates={rates} weeklyCounts={weeklyCounts} className="hidden lg:block lg:sticky lg:top-6" />
       </section>
-      <ExportModal year={year} month={month} data={data} isOpen={exportOpen} onClose={() => setExportOpen(false)} />
+      <ExportModal year={year} month={month} data={data} rates={rates} isOpen={exportOpen} onClose={() => setExportOpen(false)} />
     </AppShell>
   );
 }

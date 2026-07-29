@@ -1,0 +1,21 @@
+"use client";
+
+import { PaymentSettingsForm } from "@/components/PaymentSettingsForm";
+import { DEFAULT_PAYMENT_RATES } from "@/lib/constants";
+import type { PaymentRates } from "@/types/payment";
+
+export function OnboardingScreen({ onComplete }: { onComplete: (rates: PaymentRates) => void }) {
+  return (
+    <main className="grid min-h-screen place-items-center bg-[#f7f8fa] bg-[radial-gradient(circle_at_top_left,rgba(20,184,166,0.14),transparent_32%),radial-gradient(circle_at_bottom_right,rgba(59,130,246,0.08),transparent_28%)] px-4 py-10 dark:bg-[#070b14]">
+      <section className="w-full max-w-4xl rounded-[32px] border border-white/80 bg-white/95 p-6 shadow-[0_30px_100px_rgba(15,23,42,0.14)] backdrop-blur dark:border-slate-800 dark:bg-slate-900/95 sm:p-10">
+        <div className="mb-8">
+          <span className="grid h-14 w-14 place-items-center rounded-2xl bg-slate-950 text-2xl shadow-lg dark:bg-white">💰</span>
+          <p className="mt-6 text-sm font-black uppercase tracking-[0.2em] text-teal-700 dark:text-teal-300">Bem-vindo</p>
+          <h1 className="mt-2 text-4xl font-black tracking-tight text-slate-950 dark:text-white">Vamos configurar seu pagamento.</h1>
+          <p className="mt-3 max-w-2xl text-base font-medium leading-7 text-slate-500 dark:text-slate-400">Informe quanto você recebe por dia. Isso leva menos de um minuto e deixa todos os cálculos personalizados para você.</p>
+        </div>
+        <PaymentSettingsForm initialValues={{ ...DEFAULT_PAYMENT_RATES }} onSave={onComplete} onboarding />
+      </section>
+    </main>
+  );
+}

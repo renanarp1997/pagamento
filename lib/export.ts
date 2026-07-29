@@ -1,8 +1,8 @@
-import { FULL_DAY_VALUE, HALF_DAY_VALUE, MONTHS, STATUS_LABELS } from "@/lib/constants";
+import { MONTHS, STATUS_LABELS } from "@/lib/constants";
 import { formatMonthYear, getPeriodDays, WEEKDAY_ABBR } from "@/lib/date";
 import { formatCurrency } from "@/lib/format";
 import { summarizeMonth } from "@/lib/payments";
-import type { DayStatus, MonthData, PeriodSummary } from "@/types/payment";
+import type { DayStatus, MonthData, PaymentRates, PeriodSummary } from "@/types/payment";
 
 export type DayEntry = {
   day: number;
@@ -19,6 +19,7 @@ export type ExportReport = {
   monthName: string;
   year: number;
   month: number;
+  rates: PaymentRates;
   first: PeriodSummary;
   second: PeriodSummary;
   monthlyTotal: number;
@@ -30,20 +31,14 @@ export type ExportReport = {
   days: DayEntry[];
 };
 
-const STATUS_VALUE: Record<DayStatus, number> = {
-  V: FULL_DAY_VALUE,
-  M: HALF_DAY_VALUE,
-  O: 0
-};
-
 const CSV_STATUS: Record<DayStatus, DayEntry["statusLabel"]> = {
   V: "Inteiro",
   M: "Meio",
   O: "Folga"
 };
 
-export function buildExportReport(year: number, month: number, data: MonthData): ExportReport {
-  const summary = summarizeMonth(data);
+export function buildExportReport(year: number, month: number, data: MonthData, rates: PaymentRates): ExportReport {
+  const summary = summarizeMonth(data, rates);
   const monthlyWorkedDays = summary.first.workedDays + summary.second.workedDays;
   const monthlyTotalDays = summary.first.totalDays + summary.second.totalDays;
 
@@ -52,6 +47,7 @@ export function buildExportReport(year: number, month: number, data: MonthData):
     monthName: MONTHS[month - 1],
     year,
     month,
+    rates,
     first: summary.first,
     second: summary.second,
     monthlyTotal: summary.monthlyTotal,
@@ -60,11 +56,12 @@ export function buildExportReport(year: number, month: number, data: MonthData):
     monthlyWorkedPercentage: monthlyTotalDays === 0 ? 0 : Math.round((monthlyWorkedDays / monthlyTotalDays) * 100),
     monthlyAvgPerWorkedDay: monthlyWorkedDays === 0 ? 0 : summary.monthlyTotal / monthlyWorkedDays,
     monthlyAvgPerCalendarDay: monthlyTotalDays === 0 ? 0 : summary.monthlyTotal / monthlyTotalDays,
-    days: buildDayEntries(year, month, data)
+    days: buildDayEntries(year, month, data, rates)
   };
 }
 
-function buildDayEntries(year: number, month: number, data: MonthData): DayEntry[] {
+function buildDayEntries(year: number, month: number, data: MonthData, rates: PaymentRates): DayEntry[] {
+  const statusValue: Record<DayStatus, number> = { V: rates.fullDay, M: rates.halfDay, O: 0 };
   return (["first", "second"] as const).flatMap((period) =>
     getPeriodDays(year, month, period).map((day) => {
       const status = data[period][day] ?? "O";
@@ -75,7 +72,7 @@ function buildDayEntries(year: number, month: number, data: MonthData): DayEntry
         weekday: WEEKDAY_ABBR[new Date(year, month - 1, day).getDay()],
         status,
         statusLabel: CSV_STATUS[status],
-        value: STATUS_VALUE[status],
+        value: statusValue[status],
         emoji: status === "V" ? "🟢" : status === "M" ? "🟡" : "⚪"
       };
     })
@@ -146,4 +143,4 @@ export function downloadBlob(blob: Blob, filename: string) {
   window.setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
-export { FULL_DAY_VALUE, HALF_DAY_VALUE, STATUS_LABELS };
+export { STATUS_LABELS };

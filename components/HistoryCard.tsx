@@ -4,15 +4,16 @@ import { useState } from "react";
 import { formatMonthYear } from "@/lib/date";
 import { formatCurrency } from "@/lib/format";
 import { summarizeMonth } from "@/lib/payments";
-import type { SavedMonth } from "@/types/payment";
+import type { PaymentRates, SavedMonth } from "@/types/payment";
 
 type HistoryCardProps = {
   month: SavedMonth;
+  rates: PaymentRates;
 };
 
-export function HistoryCard({ month }: HistoryCardProps) {
+export function HistoryCard({ month, rates }: HistoryCardProps) {
   const [open, setOpen] = useState(false);
-  const summary = summarizeMonth(month.data);
+  const summary = summarizeMonth(month.data, rates);
 
   return (
     <article className="rounded-3xl border border-slate-200 bg-white/90 p-5 shadow-lg shadow-slate-900/5 transition hover:-translate-y-1 hover:shadow-soft dark:border-slate-800 dark:bg-slate-900/90">

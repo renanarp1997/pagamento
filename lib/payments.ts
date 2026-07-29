@@ -1,6 +1,5 @@
-import { FULL_DAY_VALUE, HALF_DAY_VALUE } from "@/lib/constants";
 import { getPeriodDays } from "@/lib/date";
-import type { DayStatus, MonthData, Period, PeriodData, PeriodSummary } from "@/types/payment";
+import type { DayStatus, MonthData, PaymentRates, Period, PeriodData, PeriodSummary } from "@/types/payment";
 
 export function createDefaultPeriodData(days: number[]): PeriodData {
   return Object.fromEntries(days.map((day) => [day, "O" satisfies DayStatus]));
@@ -34,14 +33,14 @@ export function getNextStatus(status: DayStatus): DayStatus {
   return "O";
 }
 
-export function summarizePeriod(periodData: PeriodData, totalDays: number): PeriodSummary {
+export function summarizePeriod(periodData: PeriodData, totalDays: number, rates: PaymentRates): PeriodSummary {
   const statuses = Object.values(periodData);
   const fullDays = statuses.filter((status) => status === "V").length;
   const halfDays = statuses.filter((status) => status === "M").length;
   const daysOff = totalDays - fullDays - halfDays;
   const workedDays = fullDays + halfDays;
-  const fullTotal = fullDays * FULL_DAY_VALUE;
-  const halfTotal = halfDays * HALF_DAY_VALUE;
+  const fullTotal = fullDays * rates.fullDay;
+  const halfTotal = halfDays * rates.halfDay;
   const total = fullTotal + halfTotal;
 
   return {
@@ -59,9 +58,9 @@ export function summarizePeriod(periodData: PeriodData, totalDays: number): Peri
   };
 }
 
-export function summarizeMonth(data: MonthData) {
-  const first = summarizePeriod(data.first, Object.keys(data.first).length);
-  const second = summarizePeriod(data.second, Object.keys(data.second).length);
+export function summarizeMonth(data: MonthData, rates: PaymentRates) {
+  const first = summarizePeriod(data.first, Object.keys(data.first).length, rates);
+  const second = summarizePeriod(data.second, Object.keys(data.second).length, rates);
 
   return {
     first,

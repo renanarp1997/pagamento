@@ -47,6 +47,34 @@ select {
   animation: export-backdrop-enter 0.22s ease-out both;
 }
 
+@keyframes day-card-pop {
+  0% { opacity: 0.7; transform: scale(0.94); }
+  65% { transform: scale(1.035); }
+  100% { opacity: 1; transform: scale(1); }
+}
+
+@keyframes total-pop {
+  0% { opacity: 0.45; transform: translateY(6px); }
+  100% { opacity: 1; transform: translateY(0); }
+}
+
+.day-card-pop {
+  animation: day-card-pop 180ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.total-pop {
+  animation: total-pop 260ms ease-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .day-card-pop,
+  .total-pop,
+  .export-modal-enter,
+  .export-backdrop-enter {
+    animation: none;
+  }
+}
+
 @media print {
   body * {
     visibility: hidden;
