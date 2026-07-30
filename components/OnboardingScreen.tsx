@@ -17,7 +17,7 @@ export function OnboardingScreen({ onComplete, initialValues = { ...DEFAULT_PAYM
       <section className="w-full max-w-4xl rounded-3xl border border-white/80 bg-white/95 p-5 shadow-[0_30px_100px_rgba(15,23,42,0.14)] backdrop-blur dark:border-slate-800 dark:bg-slate-900/95 sm:rounded-[32px] sm:p-10">
         <div className="mb-8">
           <span className="relative block h-14 w-14 overflow-hidden rounded-2xl bg-slate-950 shadow-lg">
-            <Image src={logo} alt="One Blond" fill sizes="56px" className="scale-[1.55] object-cover" priority />
+            <Image src={logo} alt="One Blond" fill sizes="80px" quality={100} className="object-cover" priority />
           </span>
           <p className="mt-6 text-sm font-black uppercase tracking-[0.2em] text-teal-700 dark:text-teal-300">Bem-vindo</p>
           <h1 className="mt-2 text-3xl font-black tracking-tight text-slate-950 dark:text-white sm:text-4xl">Vamos configurar seu pagamento.</h1>

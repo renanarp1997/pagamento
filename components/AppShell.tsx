@@ -19,7 +19,7 @@ export function AppShell({ children }: AppShellProps) {
         <header className="flex flex-col gap-3 py-1 sm:flex-row sm:items-center sm:justify-between sm:gap-4 sm:py-2">
           <Link href="/" className="group flex min-w-0 items-center gap-3" aria-label="Abrir página inicial e configuração de pagamento">
             <span className="relative h-11 w-11 shrink-0 overflow-hidden rounded-2xl bg-slate-950 shadow-lg shadow-slate-900/15 transition duration-200 group-hover:scale-105 sm:h-12 sm:w-12">
-              <Image src={logo} alt="" fill sizes="48px" className="scale-[1.55] object-cover" priority />
+              <Image src={logo} alt="" fill sizes="64px" quality={100} className="object-cover" priority />
             </span>
             <span className="min-w-0">
               <h1 className="text-lg font-black leading-tight tracking-tight text-slate-950 dark:text-white sm:text-2xl">One Blond</h1>
