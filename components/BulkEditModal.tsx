@@ -19,8 +19,8 @@ export function BulkEditModal({ count, onClose, onApply }: { count: number; onCl
 
   const valid = action !== "observation" || observation.trim().length > 0;
   return (
-    <div className="fixed inset-0 z-[70] grid place-items-center bg-slate-950/50 p-4 backdrop-blur-sm">
-      <section role="dialog" aria-modal="true" aria-labelledby="bulk-title" className="w-full max-w-lg rounded-3xl bg-white p-5 shadow-2xl dark:bg-slate-900 sm:p-6">
+    <div className="fixed inset-0 z-[70] flex items-end justify-center bg-slate-950/50 p-0 backdrop-blur-sm sm:items-center sm:p-4">
+      <section role="dialog" aria-modal="true" aria-labelledby="bulk-title" className="max-h-[calc(100dvh-1rem)] w-full max-w-lg overflow-y-auto rounded-t-3xl bg-white p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] shadow-2xl dark:bg-slate-900 sm:rounded-3xl sm:p-6">
         <h2 id="bulk-title" className="text-2xl font-black">Editar {count} dias</h2>
         <label className="mt-5 block text-sm font-bold">Aplicar<select autoFocus value={action} onChange={(event) => setAction(event.target.value as Action)} className="mt-2 h-12 w-full rounded-xl border border-slate-200 bg-white px-3 dark:border-slate-700 dark:bg-slate-950"><option value="status">Status</option><option value="absence">Falta</option><option value="observation">Observação</option><option value="value">Valor final</option></select></label>
         {action === "status" ? <label className="mt-4 block text-sm font-bold">Status<select value={status} onChange={(event) => setStatus(event.target.value as DayStatus)} className="mt-2 h-12 w-full rounded-xl border border-slate-200 bg-white px-3 dark:border-slate-700 dark:bg-slate-950"><option value="V">✓ Inteiro</option><option value="M">½ Meio período</option><option value="O">— Folga</option></select></label> : null}

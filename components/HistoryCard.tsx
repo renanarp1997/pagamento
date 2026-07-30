@@ -16,14 +16,14 @@ export function HistoryCard({ month, rates }: HistoryCardProps) {
   const summary = summarizeMonth(month.data, rates, month.year, month.month);
 
   return (
-    <article className="rounded-3xl border border-slate-200 bg-white/90 p-5 shadow-lg shadow-slate-900/5 transition hover:-translate-y-1 hover:shadow-soft dark:border-slate-800 dark:bg-slate-900/90">
+    <article className="rounded-3xl border border-slate-200 bg-white/90 p-4 shadow-lg shadow-slate-900/5 transition hover:-translate-y-1 hover:shadow-soft dark:border-slate-800 dark:bg-slate-900/90 sm:p-5">
       <button type="button" onClick={() => setOpen((current) => !current)} className="w-full text-left">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
             <h2 className="text-2xl font-black text-slate-950 dark:text-white">{formatMonthYear(month.year, month.month)}</h2>
             <p className="mt-1 text-sm font-semibold text-slate-500 dark:text-slate-400">{month.key}</p>
           </div>
-          <p className="rounded-2xl bg-teal-50 px-4 py-2 text-xl font-black text-teal-700 dark:bg-teal-400/10 dark:text-teal-200">{formatCurrency(summary.monthlyTotal)}</p>
+          <p className="max-w-full break-words rounded-2xl bg-teal-50 px-4 py-2 text-lg font-black text-teal-700 dark:bg-teal-400/10 dark:text-teal-200 sm:text-xl">{formatCurrency(summary.monthlyTotal)}</p>
         </div>
         <div className="mt-5 grid gap-3 sm:grid-cols-3">
           <HistoryMetric label="Primeira quinzena" value={formatCurrency(summary.first.total)} />
@@ -42,6 +42,7 @@ export function HistoryCard({ month, rates }: HistoryCardProps) {
             <div key={date} className="rounded-2xl border border-slate-200 p-4 text-sm dark:border-slate-800">
               <p className="font-black">{new Intl.DateTimeFormat("pt-BR").format(new Date(`${date}T12:00:00`))} — {configuration.workStatus === "absence" ? "Falta" : configuration.holiday?.isHoliday ? `Feriado: ${configuration.holiday.name ?? ""}` : "Dia configurado"}</p>
               {configuration.absence?.reason ? <p className="mt-1 text-slate-500">Motivo: {configuration.absence.reason}</p> : null}
+              {configuration.observation ? <p className="mt-1 break-words text-slate-500">Observação: {configuration.observation}</p> : null}
               {configuration.holiday ? <p className="mt-1 text-slate-500">Pagamento: {configuration.holiday.paymentType}</p> : null}
               {configuration.valueOverride ? <p className="mt-1 text-slate-500">Alteração: {configuration.valueOverride.type} {configuration.valueOverride.value ?? 0}</p> : null}
             </div>

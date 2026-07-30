@@ -84,7 +84,7 @@ export function DayConfigurationModal({ year, month, day, status, rates, holiday
 
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-slate-950/45 backdrop-blur-sm sm:items-center sm:p-4" onMouseDown={(event) => event.target === event.currentTarget && onClose()}>
-      <section role="dialog" aria-modal="true" aria-labelledby="day-modal-title" className="flex max-h-[100dvh] w-full max-w-2xl flex-col overflow-hidden bg-white shadow-2xl dark:bg-slate-900 sm:max-h-[92vh] sm:rounded-3xl">
+      <section role="dialog" aria-modal="true" aria-labelledby="day-modal-title" className="flex max-h-[100dvh] w-full max-w-2xl flex-col overflow-hidden rounded-t-3xl bg-white shadow-2xl dark:bg-slate-900 sm:max-h-[92vh] sm:rounded-3xl">
         <header className="flex items-start justify-between gap-4 border-b border-slate-200 p-5 dark:border-slate-800">
           <div><p className="text-xs font-black uppercase tracking-[0.18em] text-teal-700">Configurar dia</p><h2 id="day-modal-title" className="mt-1 text-xl font-black">{formatLongDate(year, month, day)}</h2></div>
           <button ref={closeButton} type="button" onClick={onClose} aria-label="Fechar configuração do dia" className="grid h-11 w-11 shrink-0 place-items-center rounded-xl border border-slate-200 focus-visible:ring-4 focus-visible:ring-teal-500/25 dark:border-slate-700"><XIcon className="h-5 w-5" /></button>
@@ -135,7 +135,7 @@ export function DayConfigurationModal({ year, month, day, status, rates, holiday
           </section>
         </div>
 
-        <footer className="grid grid-cols-2 gap-2 border-t border-slate-200 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-950 sm:flex sm:justify-end">
+        <footer className="grid grid-cols-2 gap-2 border-t border-slate-200 bg-slate-50 p-4 pb-[max(1rem,env(safe-area-inset-bottom))] dark:border-slate-800 dark:bg-slate-950 sm:flex sm:justify-end sm:p-4">
           <button type="button" onClick={() => { setWorkStatus(statusToWork(status)); setReason(""); setAbsenceType("unpaid"); setAbsenceDiscount(""); setHolidayWorked("not_worked"); setHolidayPayment("unpaid"); setHolidayCustom(""); setOverrideType("default"); setOverrideValue(""); setObservation(""); }} className="min-h-11 rounded-xl px-4 text-sm font-bold text-slate-600">Restaurar padrão</button>
           <button type="button" onClick={onClose} className="min-h-11 rounded-xl border border-slate-200 px-4 text-sm font-bold dark:border-slate-700">Cancelar</button>
           <button type="button" disabled={!valid} onClick={() => onSave(resultingStatus, configuration)} className="col-span-2 min-h-11 rounded-xl bg-slate-950 px-5 text-sm font-black text-white disabled:opacity-40 dark:bg-white dark:text-slate-950">Salvar</button>

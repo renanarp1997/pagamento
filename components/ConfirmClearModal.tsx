@@ -22,8 +22,8 @@ export function ConfirmClearModal({ period, onCancel, onConfirm }: Props) {
   }, [onCancel]);
 
   return (
-    <div className="fixed inset-0 z-[70] grid place-items-center bg-slate-950/50 p-4 backdrop-blur-sm" onMouseDown={(event) => event.target === event.currentTarget && onCancel()}>
-      <section role="alertdialog" aria-modal="true" aria-labelledby="clear-title" aria-describedby="clear-description" className="w-full max-w-md rounded-3xl bg-white p-5 shadow-2xl dark:bg-slate-900 sm:p-6">
+    <div className="fixed inset-0 z-[70] flex items-end justify-center bg-slate-950/50 p-0 backdrop-blur-sm sm:items-center sm:p-4" onMouseDown={(event) => event.target === event.currentTarget && onCancel()}>
+      <section role="alertdialog" aria-modal="true" aria-labelledby="clear-title" aria-describedby="clear-description" className="w-full max-w-md rounded-t-3xl bg-white p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] shadow-2xl dark:bg-slate-900 sm:rounded-3xl sm:p-6">
         <div className="flex items-start justify-between gap-4">
           <div>
             <p className="text-xs font-black uppercase tracking-[0.18em] text-rose-600">Ação destrutiva</p>

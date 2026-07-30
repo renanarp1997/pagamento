@@ -45,13 +45,13 @@ export function DayCard({ day, month, year, status, rates, configuration, holida
   const statusIcon = isHoliday ? "★" : isAbsence ? "!" : status === "V" ? "✓" : status === "M" ? "½" : "—";
 
   return (
-    <article className={`day-card-pop group relative h-[88px] min-w-0 rounded-xl border shadow-md transition hover:z-10 hover:-translate-y-1 hover:shadow-xl min-[380px]:h-[100px] min-[380px]:rounded-2xl sm:h-[118px] ${style} ${selected ? "ring-4 ring-cyan-400 ring-offset-2 dark:ring-cyan-300" : isToday(year, month, day) ? "ring-2 ring-teal-300 ring-offset-2 ring-offset-white dark:ring-teal-400 dark:ring-offset-slate-950" : ""}`}>
+    <article className={`day-card-pop group relative h-[116px] min-w-0 rounded-2xl border shadow-md transition hover:z-10 hover:-translate-y-1 hover:shadow-xl sm:h-[118px] ${style} ${selected ? "ring-4 ring-cyan-400 ring-offset-2 dark:ring-cyan-300" : isToday(year, month, day) ? "ring-2 ring-teal-300 ring-offset-2 ring-offset-white dark:ring-teal-400 dark:ring-offset-slate-950" : ""}`}>
       <button type="button" onClick={selectionMode ? onSelect : onClick} aria-pressed={selectionMode ? selected : undefined} aria-label={selectionMode ? `${selected ? "Remover" : "Adicionar"} dia ${day} da seleção` : `Dia ${day}: ${label}. Valor ${formatCurrency(value)}`} title={`${formatLongDate(year, month, day)}\n${label}\n${formatCurrency(value)}`} className="grid h-full w-full grid-rows-[auto_1fr_auto] overflow-hidden rounded-[inherit] px-1.5 py-1.5 text-center outline-none focus-visible:ring-4 focus-visible:ring-inset focus-visible:ring-teal-500/30 min-[380px]:px-2 sm:px-2.5 sm:py-2">
-        <span className="pr-5 text-[8px] font-black uppercase leading-none tracking-[0.06em] opacity-75 min-[380px]:text-[9px] sm:text-[11px]">{WEEKDAY_ABBR[weekday]}</span>
-        <span className="self-center text-[22px] font-black leading-none min-[380px]:text-2xl sm:text-[32px]">{day}</span>
+        <span className="pr-5 text-[11px] font-black uppercase leading-none tracking-[0.08em] opacity-75">{WEEKDAY_ABBR[weekday]}</span>
+        <span className="self-center text-[32px] font-black leading-none">{day}</span>
         <span className="min-w-0">
-          <span className="block overflow-hidden text-ellipsis whitespace-nowrap text-[7px] font-black uppercase leading-tight min-[380px]:text-[8px] sm:text-[9px]"><span aria-hidden="true">{statusIcon} </span>{workedLabel}</span>
-          <span className="mt-0.5 block whitespace-nowrap text-[8px] font-black leading-none min-[380px]:text-[9px] sm:text-[11px]">{formatCurrency(value)}</span>
+          <span className="block overflow-hidden text-ellipsis whitespace-nowrap text-[9px] font-black uppercase leading-tight"><span aria-hidden="true">{statusIcon} </span>{workedLabel}</span>
+          <span className="mt-0.5 block whitespace-nowrap text-[11px] font-black leading-none">{formatCurrency(value)}</span>
           <span className="mt-0.5 flex min-h-2 items-center justify-center gap-1 text-[8px] font-black leading-none">
             {modified ? <span aria-label="Valor alterado" title="Valor alterado">✎</span> : null}
             {configuration?.absence?.reason ? <span aria-label="Motivo registrado" title="Motivo registrado">●</span> : null}

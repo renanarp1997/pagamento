@@ -22,27 +22,27 @@ export function AppShell({ children }: AppShellProps) {
               <p className="mt-1 hidden text-sm font-medium text-slate-500 dark:text-slate-400 min-[380px]:block">Controle sua remuneração em tempo real.</p>
             </span>
           </Link>
-          <nav aria-label="Navegação principal" className="flex w-full items-center gap-2 sm:w-auto sm:justify-end">
+          <nav aria-label="Navegação principal" className="grid w-full grid-cols-4 gap-2 sm:flex sm:w-auto sm:justify-end">
             <Link
               href="/settings"
               aria-label="Configurações"
               title="Configurações"
-              className="grid h-11 w-11 shrink-0 place-items-center rounded-xl border border-slate-200 bg-white/80 text-lg text-slate-700 shadow-sm transition hover:-translate-y-0.5 hover:border-teal-300 hover:text-teal-700 dark:border-slate-800 dark:bg-slate-900/80 dark:text-slate-200"
+              className="inline-flex h-11 min-w-0 items-center justify-center gap-1 rounded-xl border border-slate-200 bg-white/80 px-2 text-xs font-semibold text-slate-700 shadow-sm transition hover:-translate-y-0.5 hover:border-teal-300 hover:text-teal-700 dark:border-slate-800 dark:bg-slate-900/80 dark:text-slate-200 sm:w-11 sm:px-0 sm:text-lg"
             >
-              ⚙️
+              <span aria-hidden="true">⚙️</span><span className="sm:sr-only">Ajustes</span>
             </Link>
             <Link
               href="/history"
-              className="inline-flex h-11 min-w-0 flex-1 items-center justify-center rounded-xl border border-slate-200 bg-white/80 px-3 text-sm font-semibold text-slate-700 shadow-sm transition hover:-translate-y-0.5 hover:border-teal-300 hover:text-teal-700 dark:border-slate-800 dark:bg-slate-900/80 dark:text-slate-200 dark:hover:border-teal-500 dark:hover:text-teal-200 sm:flex-none sm:px-4"
+              className="inline-flex h-11 min-w-0 items-center justify-center rounded-xl border border-slate-200 bg-white/80 px-2 text-xs font-semibold text-slate-700 shadow-sm transition hover:-translate-y-0.5 hover:border-teal-300 hover:text-teal-700 dark:border-slate-800 dark:bg-slate-900/80 dark:text-slate-200 dark:hover:border-teal-500 dark:hover:text-teal-200 sm:px-4 sm:text-sm"
             >
               Histórico
             </Link>
-            <Link href="/annual" className="hidden h-11 items-center justify-center rounded-xl border border-slate-200 bg-white/80 px-4 text-sm font-semibold text-slate-700 shadow-sm transition hover:border-teal-300 hover:text-teal-700 dark:border-slate-800 dark:bg-slate-900/80 dark:text-slate-200 md:inline-flex">Anual</Link>
+            <Link href="/annual" className="inline-flex h-11 min-w-0 items-center justify-center rounded-xl border border-slate-200 bg-white/80 px-2 text-xs font-semibold text-slate-700 shadow-sm transition hover:border-teal-300 hover:text-teal-700 dark:border-slate-800 dark:bg-slate-900/80 dark:text-slate-200 sm:px-4 sm:text-sm">Anual</Link>
             <button
               type="button"
               onClick={toggleTheme}
               aria-label="Alternar tema"
-              className="grid h-11 w-11 place-items-center rounded-xl border border-slate-200 bg-white/80 text-slate-700 shadow-sm transition hover:-translate-y-0.5 hover:border-teal-300 hover:text-teal-700 dark:border-slate-800 dark:bg-slate-900/80 dark:text-slate-200 dark:hover:border-teal-500"
+              className="grid h-11 min-w-0 place-items-center rounded-xl border border-slate-200 bg-white/80 text-slate-700 shadow-sm transition hover:-translate-y-0.5 hover:border-teal-300 hover:text-teal-700 dark:border-slate-800 dark:bg-slate-900/80 dark:text-slate-200 dark:hover:border-teal-500 sm:w-11"
             >
               {theme === "dark" ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
             </button>

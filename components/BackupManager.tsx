@@ -61,7 +61,7 @@ export function BackupManager() {
         <div className="mt-5 rounded-2xl border border-emerald-200 bg-emerald-50 p-4 dark:border-emerald-900 dark:bg-emerald-950/20">
           <p className="font-black text-emerald-800 dark:text-emerald-200">Arquivo válido</p>
           <p className="mt-2 text-sm font-semibold">{countBackupRecords(pending)} registros · {pending.history.length} históricos · {pending.settings ? "Configurações encontradas" : "Sem configurações"}</p>
-          <div className="mt-4 grid grid-cols-3 gap-2">
+          <div className="mt-4 grid gap-2 sm:grid-cols-3">
             <button type="button" onClick={() => setPending(null)} className="min-h-11 rounded-xl border border-slate-200 font-bold dark:border-slate-700">Cancelar</button>
             <button type="button" onClick={() => apply("merge")} className="min-h-11 rounded-xl bg-teal-600 font-black text-white">Mesclar</button>
             <button type="button" onClick={() => apply("replace")} className="min-h-11 rounded-xl bg-rose-600 px-2 font-black text-white">Substituir tudo</button>

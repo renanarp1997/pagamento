@@ -14,6 +14,14 @@ body {
   @apply bg-slate-50 text-slate-950 antialiased dark:bg-slate-950 dark:text-slate-50;
   min-width: 320px;
   overflow-x: hidden;
+  overflow-wrap: break-word;
+}
+
+@supports (padding: max(0px)) {
+  body {
+    padding-left: env(safe-area-inset-left);
+    padding-right: env(safe-area-inset-right);
+  }
 }
 
 button,

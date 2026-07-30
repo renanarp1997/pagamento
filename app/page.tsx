@@ -184,15 +184,15 @@ export default function Home() {
               )}
             </div>
 
-            <div className="mt-4 grid min-w-0 grid-cols-7 gap-1 sm:gap-2">
+            <div className="mt-4 grid min-w-0 grid-cols-2 gap-2 sm:grid-cols-7">
               {WEEKDAY_ABBR.map((weekday) => (
-                <div key={weekday} className="min-w-0 py-1 text-center text-[9px] font-black uppercase tracking-[0.08em] text-slate-500 dark:text-slate-400 sm:text-xs sm:tracking-[0.14em]">
+                <div key={weekday} className="hidden min-w-0 py-1 text-center text-xs font-black uppercase tracking-[0.14em] text-slate-500 dark:text-slate-400 sm:block">
                   {weekday}
                 </div>
               ))}
 
               {Array.from({ length: leadingBlanks }, (_, index) => (
-                <div key={`blank-${index}`} aria-hidden="true" className="aspect-[0.9] rounded-2xl sm:aspect-[1.05]" />
+                <div key={`blank-${index}`} aria-hidden="true" className="hidden rounded-2xl sm:block sm:aspect-[1.05]" />
               ))}
 
               {days.map((day) => (
@@ -220,7 +220,7 @@ export default function Home() {
                 />
               ))}
               {settings.period === "weekly" ? Array.from({ length: Math.max(0, 7 - leadingBlanks - days.length) }, (_, index) => (
-                <div key={`trailing-${index}`} aria-hidden="true" className="min-h-16 rounded-xl border border-dashed border-slate-200 bg-slate-50/40 dark:border-slate-800 dark:bg-slate-950/20 sm:min-h-24 sm:rounded-2xl" />
+                <div key={`trailing-${index}`} aria-hidden="true" className="hidden min-h-24 rounded-2xl border border-dashed border-slate-200 bg-slate-50/40 dark:border-slate-800 dark:bg-slate-950/20 sm:block" />
               )) : null}
             </div>
           </section>
