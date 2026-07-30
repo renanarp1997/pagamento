@@ -1,5 +1,18 @@
 import { getPeriodDays } from "@/lib/date";
-import type { DayStatus, MonthData, PaymentRates, Period, PeriodData, PeriodSummary } from "@/types/payment";
+import { calculateDayValue, getNextQuickStatus } from "@/lib/day-value";
+import type { DayConfiguration, DayStatus, MonthData, PaymentRates, PaymentSettings, Period, PeriodData, PeriodSummary } from "@/types/payment";
+
+export function getEffectiveRates(settings: PaymentSettings): PaymentRates {
+  const fullDay = settings.period === "daily"
+    ? settings.dailyValue
+    : settings.periodValue / Math.max(1, settings.workDaysPerPeriod);
+  return {
+    fullDay,
+    halfDay: settings.halfDayValue ?? fullDay / 2
+  };
+}
+
+export { calculateDayValue };
 
 export function createDefaultPeriodData(days: number[]): PeriodData {
   return Object.fromEntries(days.map((day) => [day, "O" satisfies DayStatus]));
@@ -17,20 +30,13 @@ export function normalizeMonthData(year: number, month: number, data?: Partial<M
     second: {
       ...createDefaultPeriodData(secondDays),
       ...(data?.second ?? {})
-    }
+    },
+    daySettings: data?.daySettings ?? {}
   };
 }
 
 export function getNextStatus(status: DayStatus): DayStatus {
-  if (status === "O") {
-    return "V";
-  }
-
-  if (status === "V") {
-    return "M";
-  }
-
-  return "O";
+  return getNextQuickStatus(status);
 }
 
 export function summarizePeriod(periodData: PeriodData, totalDays: number, rates: PaymentRates): PeriodSummary {
@@ -58,9 +64,57 @@ export function summarizePeriod(periodData: PeriodData, totalDays: number, rates
   };
 }
 
-export function summarizeMonth(data: MonthData, rates: PaymentRates) {
-  const first = summarizePeriod(data.first, Object.keys(data.first).length, rates);
-  const second = summarizePeriod(data.second, Object.keys(data.second).length, rates);
+export function summarizeConfiguredPeriod(
+  year: number,
+  month: number,
+  days: number[],
+  periodData: PeriodData,
+  daySettings: Record<string, DayConfiguration>,
+  rates: PaymentRates
+): PeriodSummary {
+  const entries = days.map((day) => {
+    const iso = `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+    const configuration = daySettings[iso];
+    const stored = periodData[day] ?? "O";
+    const effective = configuration?.holiday?.workedStatus === "full"
+      ? "V"
+      : configuration?.holiday?.workedStatus === "half"
+        ? "M"
+        : configuration?.workStatus === "absence"
+          ? "O"
+          : stored;
+    return { status: effective, value: calculateDayValue(stored, configuration, rates) };
+  });
+  const fullDays = entries.filter((entry) => entry.status === "V").length;
+  const halfDays = entries.filter((entry) => entry.status === "M").length;
+  const workedDays = fullDays + halfDays;
+  const total = entries.reduce((sum, entry) => sum + entry.value, 0);
+  const fullTotal = entries.filter((entry) => entry.status === "V").reduce((sum, entry) => sum + entry.value, 0);
+  const halfTotal = entries.filter((entry) => entry.status === "M").reduce((sum, entry) => sum + entry.value, 0);
+  return {
+    fullDays,
+    halfDays,
+    daysOff: days.length - workedDays,
+    workedDays,
+    totalDays: days.length,
+    fullTotal,
+    halfTotal,
+    total,
+    workedPercentage: days.length ? Math.round((workedDays / days.length) * 100) : 0,
+    averagePerWorkedDay: workedDays ? total / workedDays : 0,
+    averagePerCalendarDay: days.length ? total / days.length : 0
+  };
+}
+
+export function summarizeMonth(data: MonthData, rates: PaymentRates, year?: number, month?: number) {
+  const firstDays = Object.keys(data.first).map(Number);
+  const secondDays = Object.keys(data.second).map(Number);
+  const first = year && month
+    ? summarizeConfiguredPeriod(year, month, firstDays, data.first, data.daySettings, rates)
+    : summarizePeriod(data.first, firstDays.length, rates);
+  const second = year && month
+    ? summarizeConfiguredPeriod(year, month, secondDays, data.second, data.daySettings, rates)
+    : summarizePeriod(data.second, secondDays.length, rates);
 
   return {
     first,

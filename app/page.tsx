@@ -1,41 +1,89 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { AppShell } from "@/components/AppShell";
 import { OnboardingScreen } from "@/components/OnboardingScreen";
 import { DayCard } from "@/components/DayCard";
+import { DayConfigurationModal } from "@/components/DayConfigurationModal";
 import { DownloadIcon } from "@/components/icons";
 import { ExportModal } from "@/components/ExportModal";
 import { MonthSelector } from "@/components/MonthSelector";
-import { PeriodSelector } from "@/components/PeriodSelector";
 import { StatsChart } from "@/components/StatsChart";
 import { SummaryCard } from "@/components/SummaryCard";
-import { getCalendarLeadingBlanks, getPeriodDays, getWeekdayIndex, WEEKDAY_ABBR, WEEKDAY_NAMES } from "@/lib/date";
+import { getCalendarLeadingBlanks, getDaysInMonth, getPeriodDays, getWeekdayIndex, WEEKDAY_ABBR, WEEKDAY_NAMES } from "@/lib/date";
 import { formatCurrency } from "@/lib/format";
-import { summarizePeriod } from "@/lib/payments";
+import { getBrazilianHoliday, toIsoDate } from "@/lib/holidays";
+import { summarizeConfiguredPeriod } from "@/lib/payments";
 import { useMonthPayment } from "@/hooks/useMonthPayment";
 import { usePaymentSettings } from "@/hooks/usePaymentSettings";
-import type { Period } from "@/types/payment";
+import type { DayStatus, PaymentPeriod, Period } from "@/types/payment";
 
 export default function Home() {
   const today = new Date();
   const [month, setMonth] = useState(today.getMonth() + 1);
   const [year, setYear] = useState(today.getFullYear());
   const [period, setPeriod] = useState<Period>(today.getDate() <= 15 ? "first" : "second");
+  const [weekIndex, setWeekIndex] = useState(Math.floor((today.getDate() + new Date(today.getFullYear(), today.getMonth(), 1).getDay() - 1) / 7));
   const [exportOpen, setExportOpen] = useState(false);
-  const { data, cycleDay, setDays, clearDays } = useMonthPayment(year, month);
-  const { rates, isConfigured, save } = usePaymentSettings();
+  const [configuredDay, setConfiguredDay] = useState<number | null>(null);
+  const configurationTrigger = useRef<HTMLButtonElement | null>(null);
+  const { data, cycleDay, setDays, clearDays, saveDayConfiguration } = useMonthPayment(year, month);
+  const { settings, rates, isReady, isConfigured, save } = usePaymentSettings();
 
-  const days = useMemo(() => getPeriodDays(year, month, period), [year, month, period]);
-  const periodData = data[period];
-  const summary = useMemo(() => summarizePeriod(periodData, days.length, rates), [periodData, days.length, rates]);
+  const days = useMemo(() => getVisibleDays(year, month, settings.period, period, weekIndex), [month, period, settings.period, weekIndex, year]);
+  const periodData = useMemo(() => Object.fromEntries(days.map((day) => [day, day <= 15 ? data.first[day] : data.second[day]])), [data, days]);
+  const summary = useMemo(() => summarizeConfiguredPeriod(year, month, days, periodData, data.daySettings, rates), [data.daySettings, days, month, periodData, rates, year]);
   const leadingBlanks = useMemo(() => getCalendarLeadingBlanks(year, month, days[0] ?? 1), [days, month, year]);
   const weeklyCounts = useMemo(() => getWorkedByWeekday(year, month, periodData), [month, periodData, year]);
 
+  function setVisibleDays(status: DayStatus, filter?: (day: number) => boolean) {
+    const selected = filter ? days.filter(filter) : days;
+    const first = selected.filter((day) => day <= 15);
+    const second = selected.filter((day) => day > 15);
+    if (first.length) setDays("first", first, status);
+    if (second.length) setDays("second", second, status);
+  }
+
   function markWeekdayAsFull(weekday: number) {
     const matchingDays = days.filter((day) => getWeekdayIndex(year, month, day) === weekday);
+    setVisibleDays("V", (day) => matchingDays.includes(day));
+  }
 
-    setDays(period, matchingDays, "V");
+  function moveInterval(direction: -1 | 1) {
+    if (settings.period === "weekly") {
+      const count = getWeekCount(year, month);
+      const next = weekIndex + direction;
+      if (next < 0) {
+        const previous = shiftMonth(year, month, -1);
+        setYear(previous.year); setMonth(previous.month); setWeekIndex(getWeekCount(previous.year, previous.month) - 1);
+      } else if (next >= count) {
+        const following = shiftMonth(year, month, 1);
+        setYear(following.year); setMonth(following.month); setWeekIndex(0);
+      } else setWeekIndex(next);
+    } else if (settings.period === "fortnightly") {
+      if ((period === "first" && direction === 1) || (period === "second" && direction === -1)) {
+        setPeriod(period === "first" ? "second" : "first");
+      } else {
+        const shifted = shiftMonth(year, month, direction);
+        setYear(shifted.year); setMonth(shifted.month); setPeriod(direction === 1 ? "first" : "second");
+      }
+    }
+  }
+
+  function closeDayConfiguration() {
+    setConfiguredDay(null);
+    window.setTimeout(() => configurationTrigger.current?.focus(), 0);
+  }
+
+  if (!isReady) {
+    return (
+      <main className="grid min-h-[100dvh] place-items-center bg-[#f7f8fa] px-4 dark:bg-[#070b14]">
+        <div className="flex items-center gap-3 text-sm font-bold text-slate-500 dark:text-slate-400" role="status">
+          <span className="h-5 w-5 animate-spin rounded-full border-2 border-teal-500 border-r-transparent" />
+          Carregando suas configurações...
+        </div>
+      </main>
+    );
   }
 
   if (!isConfigured) {
@@ -44,17 +92,17 @@ export default function Home() {
 
   return (
     <AppShell>
-      <section className="grid gap-5 lg:grid-cols-[1fr_340px]">
-        <div className="flex min-w-0 flex-col gap-6">
-          <section className="relative overflow-hidden rounded-[28px] bg-slate-950 p-6 text-white shadow-[0_24px_70px_rgba(15,23,42,0.18)] dark:bg-white dark:text-slate-950 sm:p-8">
+      <section className="grid gap-4 sm:gap-5 lg:grid-cols-[minmax(0,1fr)_340px]">
+        <div className="flex min-w-0 flex-col gap-4 sm:gap-6">
+          <section className="relative overflow-hidden rounded-3xl bg-slate-950 p-5 text-white shadow-[0_24px_70px_rgba(15,23,42,0.18)] dark:bg-white dark:text-slate-950 sm:rounded-[28px] sm:p-8">
             <div className="pointer-events-none absolute -right-16 -top-24 h-64 w-64 rounded-full bg-teal-400/20 blur-3xl" />
-            <div className="flex flex-wrap items-end justify-between gap-4">
-              <div className="relative">
+            <div className="flex flex-col gap-5 min-[460px]:flex-row min-[460px]:items-end min-[460px]:justify-between">
+              <div className="relative min-w-0">
                 <p className="text-sm font-bold text-slate-400 dark:text-slate-500">Você irá receber</p>
-                <p key={summary.total} className="total-pop mt-2 text-5xl font-black tracking-[-0.045em] sm:text-7xl">{formatCurrency(summary.total)}</p>
-                <p className="mt-2 text-sm font-medium text-slate-400 dark:text-slate-500">Pagamento estimado para esta quinzena</p>
+                <p key={summary.total} className="total-pop mt-2 break-words text-[clamp(2.5rem,13vw,4.5rem)] font-black leading-none tracking-[-0.045em]">{formatCurrency(summary.total)}</p>
+                <p className="mt-2 text-sm font-medium text-slate-400 dark:text-slate-500">Pagamento estimado para {periodDescription(settings.period)}</p>
               </div>
-              <div className="relative rounded-2xl border border-white/10 bg-white/10 px-5 py-4 text-right backdrop-blur dark:border-slate-200 dark:bg-slate-100">
+              <div className="relative flex items-center justify-between rounded-2xl border border-white/10 bg-white/10 px-4 py-3 backdrop-blur dark:border-slate-200 dark:bg-slate-100 min-[460px]:block min-[460px]:px-5 min-[460px]:py-4 min-[460px]:text-right">
                 <p className="text-3xl font-black text-teal-300 dark:text-teal-700">{summary.workedPercentage}%</p>
                 <p className="mt-1 text-xs font-bold text-slate-400 dark:text-slate-500">{summary.workedDays} de {summary.totalDays} dias</p>
               </div>
@@ -64,13 +112,9 @@ export default function Home() {
             </div>
           </section>
 
-          <section className="rounded-3xl border border-slate-200 bg-white/90 p-5 shadow-soft backdrop-blur dark:border-slate-800 dark:bg-slate-900/90">
-            <div className="grid gap-4 xl:grid-cols-[1fr_1fr_auto] xl:items-end">
+          <section className="rounded-3xl border border-slate-200 bg-white/90 p-4 shadow-soft backdrop-blur dark:border-slate-800 dark:bg-slate-900/90 sm:p-5">
+            <div className="grid gap-4 xl:grid-cols-[1fr_auto] xl:items-end">
               <MonthSelector month={month} year={year} onMonthChange={setMonth} onYearChange={setYear} />
-              <div className="flex flex-col gap-2">
-                <p className="text-sm font-semibold text-slate-600 dark:text-slate-300">Period</p>
-                <PeriodSelector period={period} onPeriodChange={setPeriod} />
-              </div>
               <button
                 type="button"
                 onClick={() => setExportOpen(true)}
@@ -80,24 +124,50 @@ export default function Home() {
                 Exportar
               </button>
             </div>
-            <div className="mt-4 grid gap-2 border-t border-slate-200 pt-4 text-sm font-bold text-slate-600 dark:border-slate-800 dark:text-slate-300 sm:grid-cols-3">
+            <div className="mt-4 rounded-2xl bg-slate-50 p-3 dark:bg-slate-950/60">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <p className="text-xs font-black uppercase tracking-[0.16em] text-teal-700 dark:text-teal-300">{modeLabel(settings.period)}</p>
+                  <p className="mt-1 text-sm font-bold text-slate-700 dark:text-slate-200">{intervalLabel(year, month, days)}</p>
+                </div>
+                {settings.period === "weekly" || settings.period === "fortnightly" ? (
+                  <div className="grid w-full grid-cols-2 gap-2 sm:w-auto">
+                    <button type="button" onClick={() => moveInterval(-1)} className="min-h-11 rounded-xl border border-slate-200 bg-white px-4 text-sm font-bold dark:border-slate-700 dark:bg-slate-900">‹ Anterior</button>
+                    <button type="button" onClick={() => moveInterval(1)} className="min-h-11 rounded-xl border border-slate-200 bg-white px-4 text-sm font-bold dark:border-slate-700 dark:bg-slate-900">Próximo ›</button>
+                  </div>
+                ) : null}
+              </div>
+            </div>
+            <div className="mt-4 grid gap-2 border-t border-slate-200 pt-4 text-sm font-bold text-slate-600 dark:border-slate-800 dark:text-slate-300 sm:grid-cols-2 xl:grid-cols-5">
               <LegendItem color="bg-emerald-500" label="V - Dia inteiro" value={formatCurrency(rates.fullDay)} />
-              <LegendItem color="bg-amber-300" label="M - Meio periodo" value={formatCurrency(rates.halfDay)} />
+              <LegendItem color="bg-amber-300" label="M - Meio período" value={formatCurrency(rates.halfDay)} />
               <LegendItem color="bg-slate-200 dark:bg-slate-700" label="Folga" value="R$0" />
+              <LegendItem color="bg-rose-500" label="Falta" value="Configurável" />
+              <LegendItem color="bg-violet-500" label="Feriado" value="Configurável" />
             </div>
           </section>
 
           <section className="rounded-3xl border border-slate-200 bg-white/80 p-3 shadow-lg shadow-slate-900/5 dark:border-slate-800 dark:bg-slate-900/80 sm:p-4">
-            <div className="grid gap-2 border-b border-slate-200 pb-3 dark:border-slate-800 sm:grid-cols-4">
-              <QuickAction label="Marcar sextas como Inteiro" onClick={() => markWeekdayAsFull(5)} />
-              <QuickAction label="Marcar sábados como Inteiro" onClick={() => markWeekdayAsFull(6)} />
-              <QuickAction label="Marcar domingos como Inteiro" onClick={() => markWeekdayAsFull(0)} />
-              <QuickAction label="Limpar todos" onClick={() => clearDays(period)} muted />
+            <div className="grid grid-cols-2 gap-2 border-b border-slate-200 pb-3 dark:border-slate-800 sm:grid-cols-4">
+              {settings.period === "weekly" || settings.period === "fortnightly" ? (
+                <>
+                  <QuickAction label="Marcar dias úteis como Inteiro" onClick={() => setVisibleDays("V", (day) => ![0, 6].includes(getWeekdayIndex(year, month, day)))} />
+                  <QuickAction label="Marcar todos como Inteiro" onClick={() => setVisibleDays("V")} />
+                  <QuickAction label={`Limpar ${settings.period === "weekly" ? "semana" : "quinzena"}`} onClick={() => setVisibleDays("O")} muted />
+                </>
+              ) : (
+                <>
+                  <QuickAction label="Marcar sextas como Inteiro" onClick={() => markWeekdayAsFull(5)} />
+                  <QuickAction label="Marcar sábados como Inteiro" onClick={() => markWeekdayAsFull(6)} />
+                  <QuickAction label="Marcar domingos como Inteiro" onClick={() => markWeekdayAsFull(0)} />
+                  <QuickAction label="Limpar todos" onClick={() => { clearDays("first"); clearDays("second"); }} muted />
+                </>
+              )}
             </div>
 
-            <div className="mt-4 grid grid-cols-7 gap-1.5 sm:gap-2">
+            <div className="mt-4 grid min-w-0 grid-cols-7 gap-1 sm:gap-2">
               {WEEKDAY_ABBR.map((weekday) => (
-                <div key={weekday} className="py-1 text-center text-[10px] font-black uppercase tracking-[0.14em] text-slate-500 dark:text-slate-400 sm:text-xs">
+                <div key={weekday} className="min-w-0 py-1 text-center text-[9px] font-black uppercase tracking-[0.08em] text-slate-500 dark:text-slate-400 sm:text-xs sm:tracking-[0.14em]">
                   {weekday}
                 </div>
               ))}
@@ -107,14 +177,35 @@ export default function Home() {
               ))}
 
               {days.map((day) => (
-                <DayCard key={`${day}-${periodData[day] ?? "O"}`} day={day} month={month} year={year} status={periodData[day] ?? "O"} rates={rates} onClick={() => cycleDay(period, day)} />
+                <DayCard
+                  key={`${day}-${periodData[day] ?? "O"}`}
+                  day={day}
+                  month={month}
+                  year={year}
+                  status={periodData[day] ?? "O"}
+                  rates={rates}
+                  configuration={data.daySettings[toIsoDate(year, month, day)]}
+                  holidayName={getBrazilianHoliday(year, month, day)?.name}
+                  onClick={() => {
+                    const configuration = data.daySettings[toIsoDate(year, month, day)];
+                    if (configuration?.workStatus === "absence" || getBrazilianHoliday(year, month, day)) return;
+                    cycleDay(day <= 15 ? "first" : "second", day);
+                  }}
+                  onConfigure={(button) => {
+                    configurationTrigger.current = button;
+                    setConfiguredDay(day);
+                  }}
+                />
               ))}
+              {settings.period === "weekly" ? Array.from({ length: Math.max(0, 7 - leadingBlanks - days.length) }, (_, index) => (
+                <div key={`trailing-${index}`} aria-hidden="true" className="min-h-16 rounded-xl border border-dashed border-slate-200 bg-slate-50/40 dark:border-slate-800 dark:bg-slate-950/20 sm:min-h-24 sm:rounded-2xl" />
+              )) : null}
             </div>
           </section>
 
-          <section className="rounded-3xl border border-slate-200 bg-white/90 p-5 shadow-lg shadow-slate-900/5 dark:border-slate-800 dark:bg-slate-900/90 lg:hidden">
+          <section className="rounded-3xl border border-slate-200 bg-white/90 p-4 shadow-lg shadow-slate-900/5 dark:border-slate-800 dark:bg-slate-900/90 sm:p-5 lg:hidden">
             <p className="text-sm font-black uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">Calculo</p>
-            <div className="mt-4 grid gap-3 sm:grid-cols-3">
+            <div className="mt-4 grid gap-3 min-[520px]:grid-cols-3">
               <MobileMetric label="Inteiros" value={summary.fullDays} detail={`${summary.fullDays} × ${formatCurrency(rates.fullDay)}`} total={formatCurrency(summary.fullTotal)} />
               <MobileMetric label="Meios" value={summary.halfDays} detail={`${summary.halfDays} × ${formatCurrency(rates.halfDay)}`} total={formatCurrency(summary.halfTotal)} />
               <MobileMetric label="Folgas" value={summary.daysOff} detail="R$0" total={`${summary.workedPercentage}%`} />
@@ -143,8 +234,55 @@ export default function Home() {
         <SummaryCard summary={summary} rates={rates} weeklyCounts={weeklyCounts} className="hidden lg:block lg:sticky lg:top-6" />
       </section>
       <ExportModal year={year} month={month} data={data} rates={rates} isOpen={exportOpen} onClose={() => setExportOpen(false)} />
+      {configuredDay !== null ? (
+        <DayConfigurationModal
+          year={year}
+          month={month}
+          day={configuredDay}
+          status={periodData[configuredDay] ?? "O"}
+          rates={rates}
+          holidayName={getBrazilianHoliday(year, month, configuredDay)?.name}
+          initialConfiguration={data.daySettings[toIsoDate(year, month, configuredDay)]}
+          onClose={closeDayConfiguration}
+          onSave={(status, configuration) => {
+            setDays(configuredDay <= 15 ? "first" : "second", [configuredDay], status);
+            saveDayConfiguration(toIsoDate(year, month, configuredDay), configuration);
+            closeDayConfiguration();
+          }}
+        />
+      ) : null}
     </AppShell>
   );
+}
+
+function getVisibleDays(year: number, month: number, mode: PaymentPeriod, period: Period, weekIndex: number) {
+  if (mode === "fortnightly") return getPeriodDays(year, month, period);
+  const all = Array.from({ length: getDaysInMonth(year, month) }, (_, index) => index + 1);
+  if (mode !== "weekly") return all;
+  const leading = getWeekdayIndex(year, month, 1);
+  return all.filter((day) => Math.floor((leading + day - 1) / 7) === weekIndex);
+}
+
+function getWeekCount(year: number, month: number) {
+  return Math.ceil((getWeekdayIndex(year, month, 1) + getDaysInMonth(year, month)) / 7);
+}
+
+function shiftMonth(year: number, month: number, amount: number) {
+  const date = new Date(year, month - 1 + amount, 1);
+  return { year: date.getFullYear(), month: date.getMonth() + 1 };
+}
+
+function intervalLabel(year: number, month: number, days: number[]) {
+  if (!days.length) return "";
+  return `${days[0]} a ${days[days.length - 1]} de ${new Intl.DateTimeFormat("pt-BR", { month: "long" }).format(new Date(year, month - 1, 1))} de ${year}`;
+}
+
+function modeLabel(mode: PaymentPeriod) {
+  return { daily: "Pagamento por diária", weekly: "Pagamento semanal", fortnightly: "Pagamento quinzenal", monthly: "Pagamento mensal" }[mode];
+}
+
+function periodDescription(mode: PaymentPeriod) {
+  return { daily: "os dias exibidos", weekly: "esta semana", fortnightly: "esta quinzena", monthly: "este mês" }[mode];
 }
 
 function LegendItem({ color, label, value }: { color: string; label: string; value: string }) {

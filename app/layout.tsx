@@ -8,8 +8,8 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "Quinzena Calculator",
-  description: "Calculate biweekly payments from worked days."
+  title: "One Blond",
+  description: "Controle seus períodos de trabalho e pagamentos personalizados."
 };
 
 export default function RootLayout({
@@ -18,7 +18,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html lang="pt-BR" suppressHydrationWarning>
       <body className={`${inter.variable} font-sans`}>{children}</body>
     </html>
   );

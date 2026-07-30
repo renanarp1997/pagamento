@@ -13,7 +13,7 @@ type HistoryCardProps = {
 
 export function HistoryCard({ month, rates }: HistoryCardProps) {
   const [open, setOpen] = useState(false);
-  const summary = summarizeMonth(month.data, rates);
+  const summary = summarizeMonth(month.data, rates, month.year, month.month);
 
   return (
     <article className="rounded-3xl border border-slate-200 bg-white/90 p-5 shadow-lg shadow-slate-900/5 transition hover:-translate-y-1 hover:shadow-soft dark:border-slate-800 dark:bg-slate-900/90">
@@ -33,9 +33,19 @@ export function HistoryCard({ month, rates }: HistoryCardProps) {
       </button>
 
       {open ? (
-        <div className="mt-5 grid gap-3 border-t border-slate-200 pt-5 dark:border-slate-800 sm:grid-cols-2">
-          <Detail title="Primeira quinzena" full={summary.first.fullDays} half={summary.first.halfDays} off={summary.first.daysOff} />
-          <Detail title="Segunda quinzena" full={summary.second.fullDays} half={summary.second.halfDays} off={summary.second.daysOff} />
+        <div className="mt-5 space-y-3 border-t border-slate-200 pt-5 dark:border-slate-800">
+          <div className="grid gap-3 sm:grid-cols-2">
+            <Detail title="Primeira quinzena" full={summary.first.fullDays} half={summary.first.halfDays} off={summary.first.daysOff} />
+            <Detail title="Segunda quinzena" full={summary.second.fullDays} half={summary.second.halfDays} off={summary.second.daysOff} />
+          </div>
+          {Object.entries(month.data.daySettings).map(([date, configuration]) => (
+            <div key={date} className="rounded-2xl border border-slate-200 p-4 text-sm dark:border-slate-800">
+              <p className="font-black">{new Intl.DateTimeFormat("pt-BR").format(new Date(`${date}T12:00:00`))} — {configuration.workStatus === "absence" ? "Falta" : configuration.holiday?.isHoliday ? `Feriado: ${configuration.holiday.name ?? ""}` : "Dia configurado"}</p>
+              {configuration.absence?.reason ? <p className="mt-1 text-slate-500">Motivo: {configuration.absence.reason}</p> : null}
+              {configuration.holiday ? <p className="mt-1 text-slate-500">Pagamento: {configuration.holiday.paymentType}</p> : null}
+              {configuration.valueOverride ? <p className="mt-1 text-slate-500">Alteração: {configuration.valueOverride.type} {configuration.valueOverride.value ?? 0}</p> : null}
+            </div>
+          ))}
         </div>
       ) : null}
     </article>

@@ -112,33 +112,39 @@ export function ExportModal({ year, month, data, rates, isOpen, onClose }: Expor
     setExporting("png");
 
     try {
-      const { default: html2canvas } = await import("html2canvas");
-      const canvas = await html2canvas(reportRef.current, {
-        backgroundColor: "#ffffff",
-        scale: Math.max(2, window.devicePixelRatio),
-        useCORS: true,
-        logging: false
-      });
-      const blob = await new Promise<Blob>((resolve, reject) =>
-        canvas.toBlob((result: Blob | null) => result ? resolve(result) : reject(new Error("PNG vazio")), "image/png")
-      );
+      const blob = await createReportPng(reportRef.current);
       downloadBlob(blob, getExportFilename(report, "png"));
       showToast("success", "PNG gerado.");
-    } catch {
-      showToast("error", "Erro ao gerar PNG.");
+    } catch (error) {
+      console.error("Falha ao gerar PNG", error);
+      showToast("error", "Não foi possível gerar o PNG. Tente novamente.");
     } finally {
       setExporting(null);
     }
   }
 
-  function printReport() {
+  async function printReport() {
     if (!hasData) return;
+
+    const printWindow = window.open("", "_blank");
+    if (!printWindow) {
+      showToast("error", "Permita pop-ups para imprimir o PDF.");
+      return;
+    }
+
     setExporting("print");
     try {
-      window.print();
-      showToast("success", "Impressão aberta.");
+      printWindow.document.title = "Preparando PDF...";
+      printWindow.document.body.innerHTML =
+        '<p style="font: 16px sans-serif; padding: 24px;">Preparando PDF para impressão...</p>';
+
+      const pdf = await generatePremiumPdf(report);
+      pdf.autoPrint();
+      printWindow.location.href = pdf.output("bloburl").toString();
+      showToast("success", "PDF aberto para impressão.");
     } catch {
-      showToast("error", "Erro ao imprimir.");
+      printWindow.close();
+      showToast("error", "Erro ao gerar o PDF para impressão.");
     } finally {
       setExporting(null);
     }
@@ -146,18 +152,18 @@ export function ExportModal({ year, month, data, rates, isOpen, onClose }: Expor
 
   return (
     <div
-      className="export-backdrop-enter fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 px-4 py-8 backdrop-blur-md"
+      className="export-backdrop-enter fixed inset-0 z-50 flex items-end justify-center bg-slate-900/40 p-0 backdrop-blur-md sm:items-center sm:px-4 sm:py-8"
       onClick={onClose}
       role="presentation"
     >
       <div
-        className="export-modal-enter flex max-h-[92vh] w-full max-w-[860px] flex-col overflow-hidden rounded-[20px] border border-slate-200/80 bg-white shadow-[0_24px_80px_rgba(15,23,42,0.18)]"
+        className="export-modal-enter flex h-[100dvh] w-full max-w-[860px] flex-col overflow-hidden bg-white shadow-[0_24px_80px_rgba(15,23,42,0.18)] sm:h-auto sm:max-h-[92vh] sm:rounded-[20px] sm:border sm:border-slate-200/80"
         onClick={(event) => event.stopPropagation()}
         role="dialog"
         aria-modal="true"
         aria-labelledby="export-modal-title"
       >
-        <header className="export-no-print flex shrink-0 items-start justify-between gap-4 border-b border-slate-100 px-6 py-5 sm:px-8">
+        <header className="export-no-print flex shrink-0 items-start justify-between gap-4 border-b border-slate-100 px-4 py-4 sm:px-8 sm:py-5">
           <div>
             <p className="text-sm font-semibold text-slate-500">📄 Exportar Resumo</p>
             <h2 id="export-modal-title" className="mt-1 text-2xl font-bold tracking-tight text-slate-950">
@@ -175,9 +181,9 @@ export function ExportModal({ year, month, data, rates, isOpen, onClose }: Expor
         </header>
 
         <div className="min-h-0 flex-1 overflow-y-auto">
-          <div id="export-report-print" ref={reportRef} className="bg-white px-6 py-6 sm:px-8 sm:py-8">
+          <div id="export-report-print" ref={reportRef} className="bg-white px-4 py-5 sm:px-8 sm:py-8">
             <div className="hidden print:block">
-              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Pagamento Quinzenal</p>
+              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">One Blond</p>
               <h1 className="mt-2 text-3xl font-bold text-slate-950">{report.monthYear}</h1>
               <div className="mt-4 h-px bg-slate-200" />
             </div>
@@ -200,9 +206,9 @@ export function ExportModal({ year, month, data, rates, isOpen, onClose }: Expor
 
             <div className="my-8 h-px bg-gradient-to-r from-transparent via-slate-200 to-transparent" />
 
-            <div className="rounded-[20px] border border-emerald-100 bg-gradient-to-br from-emerald-50 to-white p-6 shadow-[0_8px_30px_rgba(16,185,129,0.08)]">
+            <div className="rounded-[20px] border border-emerald-100 bg-gradient-to-br from-emerald-50 to-white p-4 shadow-[0_8px_30px_rgba(16,185,129,0.08)] sm:p-6">
               <p className="text-sm font-semibold uppercase tracking-[0.18em] text-emerald-700">💰 Total do mês</p>
-              <p className="mt-2 text-4xl font-bold tracking-tight text-emerald-700 sm:text-5xl">{formatCurrency(report.monthlyTotal)}</p>
+              <p className="mt-2 break-words text-3xl font-bold tracking-tight text-emerald-700 sm:text-5xl">{formatCurrency(report.monthlyTotal)}</p>
             </div>
 
             <section className="mt-8">
@@ -238,6 +244,55 @@ export function ExportModal({ year, month, data, rates, isOpen, onClose }: Expor
               </section>
             ) : null}
 
+            {report.days.some((entry) => entry.details?.length) ? (
+              <section className="mt-8">
+                <h3 className="text-sm font-semibold uppercase tracking-[0.18em] text-slate-500">Configurações especiais</h3>
+                <div className="mt-4 space-y-2">
+                  {report.days.filter((entry) => entry.details?.length).map((entry) => (
+                    <div key={`detail-${entry.date}`} className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm text-slate-700">
+                      <p className="font-bold">{entry.date} — {entry.details?.join(" | ")}</p>
+                      <p className="mt-1 font-semibold text-slate-900">{formatCurrency(entry.value)}</p>
+                    </div>
+                  ))}
+                </div>
+              </section>
+            ) : null}
+
+            <section className="mt-8">
+              <h3 className="text-sm font-semibold uppercase tracking-[0.18em] text-slate-500">Detalhamento diário</h3>
+              <div className="mt-4 overflow-hidden rounded-[20px] border border-slate-200">
+                <div className="hidden grid-cols-[110px_70px_minmax(0,1fr)_110px] gap-3 bg-slate-950 px-4 py-3 text-xs font-bold uppercase tracking-wide text-white sm:grid">
+                  <span>Data</span>
+                  <span>Dia</span>
+                  <span>Status e detalhes</span>
+                  <span className="text-right">Valor final</span>
+                </div>
+                <div className="divide-y divide-slate-200">
+                  {report.days.map((entry) => (
+                    <div key={`daily-${entry.date}`} className="grid gap-2 bg-white px-4 py-3 text-sm sm:grid-cols-[110px_70px_minmax(0,1fr)_110px] sm:items-start sm:gap-3">
+                      <div>
+                        <span className="text-xs font-bold uppercase text-slate-400 sm:hidden">Data</span>
+                        <p className="font-semibold text-slate-800">{entry.date}</p>
+                      </div>
+                      <div>
+                        <span className="text-xs font-bold uppercase text-slate-400 sm:hidden">Dia</span>
+                        <p className="font-semibold text-slate-600">{entry.weekday}</p>
+                      </div>
+                      <div className="min-w-0">
+                        <span className="text-xs font-bold uppercase text-slate-400 sm:hidden">Status e detalhes</span>
+                        <p className="font-bold text-slate-900">{entry.statusLabel}</p>
+                        {entry.details?.map((detail) => <p key={detail} className="mt-1 break-words text-xs font-medium text-slate-500">{detail}</p>)}
+                      </div>
+                      <div className="sm:text-right">
+                        <span className="text-xs font-bold uppercase text-slate-400 sm:hidden">Valor final</span>
+                        <p className="font-bold text-slate-950">{formatCurrency(entry.value)}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </section>
+
             <section className="mt-8">
               <h3 className="text-sm font-semibold uppercase tracking-[0.18em] text-slate-500">Resumo</h3>
               <div className="mt-4 grid gap-3 sm:grid-cols-3">
@@ -269,7 +324,7 @@ export function ExportModal({ year, month, data, rates, isOpen, onClose }: Expor
 
         <footer className="export-no-print shrink-0 border-t border-slate-100 bg-slate-50/80 px-4 py-4 sm:px-6">
           {!hasData ? <p className="mb-3 text-center text-sm font-semibold text-amber-700">Nenhum dado para exportar.</p> : null}
-          <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-5">
+          <div className="grid grid-cols-2 gap-2 lg:grid-cols-5">
             <ExportActionButton
               icon={<CopyIcon className="h-4 w-4" />}
               label={exporting === "copy" ? "Copiando..." : "Copiar Resumo"}
@@ -299,6 +354,41 @@ export function ExportModal({ year, month, data, rates, isOpen, onClose }: Expor
       ) : null}
     </div>
   );
+}
+
+async function createReportPng(element: HTMLDivElement) {
+  try {
+    const { toPng } = await import("html-to-image");
+    const dataUrl = await toPng(element, {
+      backgroundColor: "#ffffff",
+      cacheBust: true,
+      pixelRatio: Math.min(2, Math.max(1, window.devicePixelRatio)),
+      width: element.scrollWidth,
+      height: element.scrollHeight,
+      style: {
+        color: "#0f172a",
+        overflow: "visible"
+      }
+    });
+    const response = await fetch(dataUrl);
+    if (!response.ok) throw new Error("Falha ao converter imagem");
+    return await response.blob();
+  } catch (primaryError) {
+    console.warn("Captura principal do PNG falhou; usando modo de compatibilidade.", primaryError);
+    const { default: html2canvas } = await import("html2canvas");
+    const canvas = await html2canvas(element, {
+      backgroundColor: "#ffffff",
+      scale: Math.min(2, Math.max(1, window.devicePixelRatio)),
+      useCORS: true,
+      logging: false,
+      width: element.scrollWidth,
+      height: element.scrollHeight,
+      windowWidth: Math.max(element.scrollWidth, 860)
+    });
+    return await new Promise<Blob>((resolve, reject) =>
+      canvas.toBlob((result: Blob | null) => result ? resolve(result) : reject(new Error("PNG vazio")), "image/png")
+    );
+  }
 }
 
 function PeriodReport({ title, summary, rates }: { title: string; summary: PeriodSummary; rates: PaymentRates }) {

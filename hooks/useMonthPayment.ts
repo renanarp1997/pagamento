@@ -3,7 +3,8 @@
 import { useCallback, useMemo, useSyncExternalStore } from "react";
 import { getStorageKey } from "@/lib/date";
 import { clearPeriod, normalizeMonthData, setDaysStatus, updateDay } from "@/lib/payments";
-import type { DayStatus, MonthData, Period } from "@/types/payment";
+import { saveMonthWithHistory } from "@/lib/payment-history";
+import type { DayConfiguration, DayStatus, MonthData, Period } from "@/types/payment";
 
 export const PAYMENT_STORAGE_EVENT = "quinzena-payments-change";
 
@@ -43,30 +44,47 @@ export function useMonthPayment(year: number, month: number) {
     const current = readMonthData(year, month, window.localStorage.getItem(storageKey));
     const updated = updateDay(current, period, day);
 
-    window.localStorage.setItem(storageKey, JSON.stringify(updated));
-    window.dispatchEvent(new Event(PAYMENT_STORAGE_EVENT));
+    if (saveMonthWithHistory(year, month, current, updated, `Alteração do dia ${day}`)) {
+      window.dispatchEvent(new Event(PAYMENT_STORAGE_EVENT));
+    }
   }, [month, storageKey, year]);
 
   const setDays = useCallback((period: Period, days: number[], status: DayStatus) => {
     const current = readMonthData(year, month, window.localStorage.getItem(storageKey));
     const updated = setDaysStatus(current, period, days, status);
 
-    window.localStorage.setItem(storageKey, JSON.stringify(updated));
-    window.dispatchEvent(new Event(PAYMENT_STORAGE_EVENT));
+    const label = status === "V" ? "dia inteiro" : status === "M" ? "meio período" : "folga";
+    if (saveMonthWithHistory(year, month, current, updated, `${days.length} dia(s) marcado(s) como ${label}`)) {
+      window.dispatchEvent(new Event(PAYMENT_STORAGE_EVENT));
+    }
   }, [month, storageKey, year]);
 
   const clearDays = useCallback((period: Period) => {
     const current = readMonthData(year, month, window.localStorage.getItem(storageKey));
     const updated = clearPeriod(current, period);
 
-    window.localStorage.setItem(storageKey, JSON.stringify(updated));
-    window.dispatchEvent(new Event(PAYMENT_STORAGE_EVENT));
+    const label = period === "first" ? "1ª quinzena" : "2ª quinzena";
+    if (saveMonthWithHistory(year, month, current, updated, `Limpeza da ${label}`)) {
+      window.dispatchEvent(new Event(PAYMENT_STORAGE_EVENT));
+    }
+  }, [month, storageKey, year]);
+
+  const saveDayConfiguration = useCallback((isoDate: string, configuration: DayConfiguration | null) => {
+    const current = readMonthData(year, month, window.localStorage.getItem(storageKey));
+    const daySettings = { ...current.daySettings };
+    if (configuration) daySettings[isoDate] = configuration;
+    else delete daySettings[isoDate];
+    const updated = { ...current, daySettings };
+    if (saveMonthWithHistory(year, month, current, updated, `Configuração do dia ${isoDate.slice(-2)}`)) {
+      window.dispatchEvent(new Event(PAYMENT_STORAGE_EVENT));
+    }
   }, [month, storageKey, year]);
 
   return {
     data,
     cycleDay,
     setDays,
-    clearDays
+    clearDays,
+    saveDayConfiguration
   };
 }

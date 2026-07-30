@@ -1,7 +1,8 @@
 import { MONTHS, STATUS_LABELS } from "@/lib/constants";
 import { formatMonthYear, getPeriodDays, WEEKDAY_ABBR } from "@/lib/date";
 import { formatCurrency } from "@/lib/format";
-import { summarizeMonth } from "@/lib/payments";
+import { calculateDayValue, summarizeMonth } from "@/lib/payments";
+import { getBrazilianHoliday, toIsoDate } from "@/lib/holidays";
 import type { DayStatus, MonthData, PaymentRates, PeriodSummary } from "@/types/payment";
 
 export type DayEntry = {
@@ -12,6 +13,7 @@ export type DayEntry = {
   statusLabel: "Inteiro" | "Meio" | "Folga";
   value: number;
   emoji: string;
+  details?: string[];
 };
 
 export type ExportReport = {
@@ -38,7 +40,7 @@ const CSV_STATUS: Record<DayStatus, DayEntry["statusLabel"]> = {
 };
 
 export function buildExportReport(year: number, month: number, data: MonthData, rates: PaymentRates): ExportReport {
-  const summary = summarizeMonth(data, rates);
+  const summary = summarizeMonth(data, rates, year, month);
   const monthlyWorkedDays = summary.first.workedDays + summary.second.workedDays;
   const monthlyTotalDays = summary.first.totalDays + summary.second.totalDays;
 
@@ -61,10 +63,17 @@ export function buildExportReport(year: number, month: number, data: MonthData, 
 }
 
 function buildDayEntries(year: number, month: number, data: MonthData, rates: PaymentRates): DayEntry[] {
-  const statusValue: Record<DayStatus, number> = { V: rates.fullDay, M: rates.halfDay, O: 0 };
   return (["first", "second"] as const).flatMap((period) =>
     getPeriodDays(year, month, period).map((day) => {
       const status = data[period][day] ?? "O";
+      const iso = toIsoDate(year, month, day);
+      const configuration = data.daySettings[iso];
+      const automaticHoliday = getBrazilianHoliday(year, month, day);
+      const details = [
+        configuration?.workStatus === "absence" ? `Falta${configuration.absence?.reason ? ` — Motivo: ${configuration.absence.reason}` : ""}` : "",
+        automaticHoliday || configuration?.holiday?.isHoliday ? `Feriado: ${configuration?.holiday?.name ?? automaticHoliday?.name}${configuration?.holiday ? ` — Pagamento: ${configuration.holiday.paymentType}` : ""}` : "",
+        configuration?.valueOverride ? `Alteração: ${configuration.valueOverride.type} ${configuration.valueOverride.value ?? 0}` : ""
+      ].filter(Boolean);
 
       return {
         day,
@@ -72,8 +81,9 @@ function buildDayEntries(year: number, month: number, data: MonthData, rates: Pa
         weekday: WEEKDAY_ABBR[new Date(year, month - 1, day).getDay()],
         status,
         statusLabel: CSV_STATUS[status],
-        value: statusValue[status],
+        value: calculateDayValue(status, configuration, rates),
         emoji: status === "V" ? "🟢" : status === "M" ? "🟡" : "⚪"
+        ,details
       };
     })
   );
@@ -81,7 +91,7 @@ function buildDayEntries(year: number, month: number, data: MonthData, rates: Pa
 
 export function buildCopyText(report: ExportReport) {
   return [
-    "PAGAMENTO QUINZENAL",
+    "ONE BLOND",
     report.monthYear,
     "",
     "Primeira quinzena",
@@ -98,7 +108,12 @@ export function buildCopyText(report: ExportReport) {
     `Folgas: ${report.second.daysOff}`,
     `Total: ${formatCurrency(report.second.total)}`,
     "",
-    `TOTAL MENSAL: ${formatCurrency(report.monthlyTotal)}`
+    `TOTAL MENSAL: ${formatCurrency(report.monthlyTotal)}`,
+    "",
+    ...report.days.filter((day) => day.details?.length).flatMap((day) => [
+      `${day.date} — ${day.details?.join(" | ")}`,
+      `Valor: ${formatCurrency(day.value)}`
+    ])
   ].join("\n");
 }
 
@@ -107,20 +122,34 @@ export function buildCsvContent(report: ExportReport) {
   const halfDays = report.first.halfDays + report.second.halfDays;
   const daysOff = report.first.daysOff + report.second.daysOff;
   const rows: Array<Array<string | number>> = [
-    ["Date", "Weekday", "Status", "Value"],
-    ...report.days.map((day) => [day.date, day.weekday, day.statusLabel, day.value]),
+    ["Data", "Dia da semana", "Quinzena", "Status", "Detalhes", "Valor (R$)"],
+    ...report.days.map((day) => [
+      day.date,
+      day.weekday,
+      day.day <= 15 ? "1ª quinzena" : "2ª quinzena",
+      day.statusLabel,
+      day.details?.join(" | ") ?? "",
+      formatCsvNumber(day.value)
+    ]),
     [],
-    ["Total Inteiros", "", "", fullDays],
-    ["Total Meios", "", "", halfDays],
-    ["Total Folgas", "", "", daysOff],
-    ["Total Geral", "", "", report.monthlyTotal]
+    ["Resumo", "", "", "", "", ""],
+    ["Total de dias inteiros", "", "", "", "", fullDays],
+    ["Total de meios períodos", "", "", "", "", halfDays],
+    ["Total de folgas", "", "", "", "", daysOff],
+    ["Total da 1ª quinzena", "", "", "", "", formatCsvNumber(report.first.total)],
+    ["Total da 2ª quinzena", "", "", "", "", formatCsvNumber(report.second.total)],
+    ["Total geral", "", "", "", "", formatCsvNumber(report.monthlyTotal)]
   ];
 
-  return `\uFEFF${rows.map((row) => row.map((cell) => escapeCsvCell(String(cell))).join(",")).join("\r\n")}`;
+  return `\uFEFFsep=;\r\n${rows.map((row) => row.map((cell) => escapeCsvCell(String(cell), ";")).join(";")).join("\r\n")}`;
 }
 
-function escapeCsvCell(value: string) {
-  return /[",\r\n]/.test(value) ? `"${value.replace(/"/g, '""')}"` : value;
+function formatCsvNumber(value: number) {
+  return value.toFixed(2).replace(".", ",");
+}
+
+function escapeCsvCell(value: string, delimiter: string) {
+  return value.includes(delimiter) || /["\r\n]/.test(value) ? `"${value.replace(/"/g, '""')}"` : value;
 }
 
 export function getExportFilename(report: ExportReport, extension: "pdf" | "csv" | "png") {

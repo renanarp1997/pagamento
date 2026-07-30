@@ -62,7 +62,7 @@ function drawHeader(pdf: Pdf, report: ExportReport, generated: Date) {
   pdf.setFontSize(6);
   pdf.text("QC", 25, 28.8, { align: "center" });
   pdf.setFontSize(14);
-  pdf.text("PAGAMENTO QUINZENAL", 35, 24);
+  pdf.text("ONE BLOND", 35, 24);
   pdf.setFont("helvetica", "normal");
   pdf.setFontSize(8);
   pdf.setTextColor(203, 213, 225);
@@ -71,7 +71,7 @@ function drawHeader(pdf: Pdf, report: ExportReport, generated: Date) {
   pdf.setFontSize(7);
   pdf.text(`${report.monthName}  •  ${report.year}`, 194, 22, { align: "right" });
   pdf.text(`Gerado em ${formatDate(generated)} às ${formatTime(generated)}`, 194, 28, { align: "right" });
-  pdf.text("v1.0  •  Quinzena Calculator", 194, 34, { align: "right" });
+  pdf.text("v1.0  •  One Blond", 194, 34, { align: "right" });
 }
 
 function drawHero(pdf: Pdf, report: ExportReport, y: number) {
@@ -162,8 +162,8 @@ function drawWorkLog(pdf: Pdf, report: ExportReport, y: number) {
   autoTable(pdf, {
     startY: y,
     margin: { left: M, right: M, bottom: 18 },
-    head: [["Data", "Dia", "Status", "Pagamento"]],
-    body: report.days.map((day) => [day.date, day.weekday, day.statusLabel, formatCurrency(day.value)]),
+    head: [["Data", "Dia", "Status / detalhes", "Pagamento"]],
+    body: report.days.map((day) => [day.date, day.weekday, [day.statusLabel, ...(day.details ?? [])].join(" — "), formatCurrency(day.value)]),
     theme: "plain",
     styles: { font: "helvetica", fontSize: 8, cellPadding: 3.2, textColor: C.ink },
     headStyles: { fillColor: C.ink, textColor: C.white, fontStyle: "bold" },
@@ -311,7 +311,7 @@ function drawMethodology(pdf: Pdf, report: ExportReport, y: number) {
   card(pdf, M, y, CONTENT_W, 48);
   text(pdf, "Sobre este relatório", M + 8, y + 11, 11, "bold", C.ink);
   const copy = [
-    "Este documento consolida os registros do calendário do Quinzena Calculator.",
+    "Este documento consolida os registros do calendário do One Blond.",
     `Dias inteiros são calculados a ${formatCurrency(report.rates.fullDay)}; meios períodos, a ${formatCurrency(report.rates.halfDay)}; folgas não geram remuneração.`,
     "Percentuais e médias são derivados exclusivamente dos dados registrados no mês selecionado.",
     "Revise os lançamentos antes de utilizar este relatório para fins contábeis."
@@ -347,7 +347,7 @@ function addFooters(pdf: Pdf, generated: Date) {
     pdf.setPage(page);
     pdf.setDrawColor(...C.line);
     pdf.line(M, 282, 194, 282);
-    text(pdf, `Gerado automaticamente por Quinzena Calculator  •  ${formatDate(generated)} ${formatTime(generated)}`, M, 288, 6.5, "normal", C.muted);
+    text(pdf, `Gerado automaticamente por One Blond  •  ${formatDate(generated)} ${formatTime(generated)}`, M, 288, 6.5, "normal", C.muted);
     text(pdf, "Relatório Financeiro Confidencial", 105, 288, 6.5, "normal", C.muted, "center");
     text(pdf, `Página ${page} de ${pages}`, 194, 288, 6.5, "bold", C.muted, "right");
   }

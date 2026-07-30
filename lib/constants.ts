@@ -5,6 +5,14 @@ export const DEFAULT_PAYMENT_RATES = {
   halfDay: HALF_DAY_VALUE
 } as const;
 
+export const DEFAULT_PAYMENT_SETTINGS = {
+  period: "daily",
+  dailyValue: FULL_DAY_VALUE,
+  halfDayValue: HALF_DAY_VALUE,
+  periodValue: FULL_DAY_VALUE,
+  workDaysPerPeriod: 1
+} as const;
+
 export const MONTHS = [
   "Janeiro",
   "Fevereiro",
