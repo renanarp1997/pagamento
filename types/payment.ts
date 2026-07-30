@@ -7,6 +7,7 @@ export type DayValueOverrideType = "default" | "final_value" | "addition" | "dis
 
 export type DayConfiguration = {
   workStatus: DayWorkStatus;
+  observation?: string;
   absence?: {
     paymentType: AbsencePaymentType;
     reason?: string;
@@ -72,4 +73,20 @@ export type SavedMonth = {
   year: number;
   month: number;
   data: MonthData;
+};
+
+export type UndoAction = {
+  id: string;
+  timestamp: string;
+  year: number;
+  month: number;
+  previousState: MonthData;
+  previousHistory: string | null;
+};
+
+export type BulkDayUpdate = {
+  status?: DayStatus;
+  absence?: boolean;
+  observation?: string;
+  finalValue?: number;
 };

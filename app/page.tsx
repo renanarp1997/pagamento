@@ -10,13 +10,16 @@ import { ExportModal } from "@/components/ExportModal";
 import { MonthSelector } from "@/components/MonthSelector";
 import { StatsChart } from "@/components/StatsChart";
 import { SummaryCard } from "@/components/SummaryCard";
+import { ConfirmClearModal } from "@/components/ConfirmClearModal";
+import { UndoToast } from "@/components/UndoToast";
+import { BulkEditModal } from "@/components/BulkEditModal";
 import { getCalendarLeadingBlanks, getDaysInMonth, getPeriodDays, getWeekdayIndex, WEEKDAY_ABBR, WEEKDAY_NAMES } from "@/lib/date";
 import { formatCurrency } from "@/lib/format";
 import { getBrazilianHoliday, toIsoDate } from "@/lib/holidays";
 import { summarizeConfiguredPeriod } from "@/lib/payments";
 import { useMonthPayment } from "@/hooks/useMonthPayment";
 import { usePaymentSettings } from "@/hooks/usePaymentSettings";
-import type { DayStatus, PaymentPeriod, Period } from "@/types/payment";
+import type { DayStatus, PaymentPeriod, Period, UndoAction } from "@/types/payment";
 
 export default function Home() {
   const today = new Date();
@@ -26,8 +29,13 @@ export default function Home() {
   const [weekIndex, setWeekIndex] = useState(Math.floor((today.getDate() + new Date(today.getFullYear(), today.getMonth(), 1).getDay() - 1) / 7));
   const [exportOpen, setExportOpen] = useState(false);
   const [configuredDay, setConfiguredDay] = useState<number | null>(null);
+  const [pendingClear, setPendingClear] = useState<{ days: number[]; label: string } | null>(null);
+  const [undoAction, setUndoAction] = useState<UndoAction | null>(null);
+  const [selectionMode, setSelectionMode] = useState(false);
+  const [selectedDays, setSelectedDays] = useState<number[]>([]);
+  const [bulkOpen, setBulkOpen] = useState(false);
   const configurationTrigger = useRef<HTMLButtonElement | null>(null);
-  const { data, cycleDay, setDays, clearDays, saveDayConfiguration } = useMonthPayment(year, month);
+  const { data, cycleDay, setDays, clearRange, undoClear, saveDayConfiguration, updateManyDays, duplicatePreviousMonth } = useMonthPayment(year, month);
   const { settings, rates, isReady, isConfigured, save } = usePaymentSettings();
 
   const days = useMemo(() => getVisibleDays(year, month, settings.period, period, weekIndex), [month, period, settings.period, weekIndex, year]);
@@ -138,6 +146,17 @@ export default function Home() {
                 ) : null}
               </div>
             </div>
+            <div className="mt-3 grid gap-2 sm:grid-cols-2">
+              <button type="button" aria-pressed={selectionMode} onClick={() => { setSelectionMode((active) => !active); setSelectedDays([]); }} className={`min-h-11 rounded-xl border px-4 text-sm font-black ${selectionMode ? "border-cyan-500 bg-cyan-500 text-white" : "border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-900"}`}>{selectionMode ? "Cancelar seleção" : "Selecionar vários dias"}</button>
+              <button type="button" onClick={() => { if (window.confirm("Copiar status, faltas, feriados, valores e observações do mês anterior?")) duplicatePreviousMonth(); }} className="min-h-11 rounded-xl border border-slate-200 bg-white px-4 text-sm font-black dark:border-slate-700 dark:bg-slate-900">Copiar configurações do mês anterior</button>
+            </div>
+            {selectionMode ? (
+              <div className="mt-3 flex flex-wrap items-center gap-2 rounded-2xl bg-cyan-50 p-3 dark:bg-cyan-950/20">
+                <span className="mr-auto text-sm font-black">{selectedDays.length} dia(s) selecionado(s)</span>
+                <button type="button" onClick={() => setSelectedDays([...days])} className="min-h-10 rounded-xl bg-white px-3 text-sm font-bold dark:bg-slate-900">Selecionar período</button>
+                <button type="button" disabled={!selectedDays.length} onClick={() => setBulkOpen(true)} className="min-h-10 rounded-xl bg-cyan-600 px-4 text-sm font-black text-white disabled:opacity-40">Editar seleção</button>
+              </div>
+            ) : null}
             <div className="mt-4 grid gap-2 border-t border-slate-200 pt-4 text-sm font-bold text-slate-600 dark:border-slate-800 dark:text-slate-300 sm:grid-cols-2 xl:grid-cols-5">
               <LegendItem color="bg-emerald-500" label="V - Dia inteiro" value={formatCurrency(rates.fullDay)} />
               <LegendItem color="bg-amber-300" label="M - Meio período" value={formatCurrency(rates.halfDay)} />
@@ -153,14 +172,14 @@ export default function Home() {
                 <>
                   <QuickAction label="Marcar dias úteis como Inteiro" onClick={() => setVisibleDays("V", (day) => ![0, 6].includes(getWeekdayIndex(year, month, day)))} />
                   <QuickAction label="Marcar todos como Inteiro" onClick={() => setVisibleDays("V")} />
-                  <QuickAction label={`Limpar ${settings.period === "weekly" ? "semana" : "quinzena"}`} onClick={() => setVisibleDays("O")} muted />
+                  <QuickAction label={`Limpar ${settings.period === "weekly" ? "semana" : "quinzena"}`} onClick={() => setPendingClear({ days, label: intervalLabel(year, month, days) })} muted />
                 </>
               ) : (
                 <>
                   <QuickAction label="Marcar sextas como Inteiro" onClick={() => markWeekdayAsFull(5)} />
                   <QuickAction label="Marcar sábados como Inteiro" onClick={() => markWeekdayAsFull(6)} />
                   <QuickAction label="Marcar domingos como Inteiro" onClick={() => markWeekdayAsFull(0)} />
-                  <QuickAction label="Limpar todos" onClick={() => { clearDays("first"); clearDays("second"); }} muted />
+                  <QuickAction label="Limpar todos" onClick={() => setPendingClear({ days, label: `${new Intl.DateTimeFormat("pt-BR", { month: "long" }).format(new Date(year, month - 1, 1))} de ${year}` })} muted />
                 </>
               )}
             </div>
@@ -191,6 +210,9 @@ export default function Home() {
                     if (configuration?.workStatus === "absence" || getBrazilianHoliday(year, month, day)) return;
                     cycleDay(day <= 15 ? "first" : "second", day);
                   }}
+                  selectionMode={selectionMode}
+                  selected={selectedDays.includes(day)}
+                  onSelect={() => setSelectedDays((current) => current.includes(day) ? current.filter((item) => item !== day) : [...current, day].sort((a, b) => a - b))}
                   onConfigure={(button) => {
                     configurationTrigger.current = button;
                     setConfiguredDay(day);
@@ -251,6 +273,27 @@ export default function Home() {
           }}
         />
       ) : null}
+      {pendingClear ? (
+        <ConfirmClearModal
+          period={pendingClear.label}
+          onCancel={() => setPendingClear(null)}
+          onConfirm={() => {
+            const undo = clearRange(pendingClear.days, `Limpeza de ${pendingClear.label}`);
+            setPendingClear(null);
+            if (undo) setUndoAction(undo);
+          }}
+        />
+      ) : null}
+      {undoAction ? (
+        <UndoToast
+          onExpire={() => setUndoAction(null)}
+          onUndo={() => {
+            undoClear(undoAction);
+            setUndoAction(null);
+          }}
+        />
+      ) : null}
+      {bulkOpen ? <BulkEditModal count={selectedDays.length} onClose={() => setBulkOpen(false)} onApply={(update) => { updateManyDays(selectedDays, update); setBulkOpen(false); setSelectedDays([]); setSelectionMode(false); }} /> : null}
     </AppShell>
   );
 }
@@ -315,7 +358,7 @@ function QuickAction({ label, onClick, muted = false }: { label: string; onClick
     <button
       type="button"
       onClick={onClick}
-      className={`h-11 rounded-2xl px-3 text-xs font-black transition hover:-translate-y-0.5 sm:text-sm ${
+      className={`min-h-12 rounded-2xl px-3 py-2 text-xs font-black leading-tight transition hover:-translate-y-0.5 sm:text-sm ${
         muted
           ? "bg-slate-100 text-slate-700 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
           : "bg-teal-50 text-teal-800 ring-1 ring-teal-100 hover:bg-teal-100 dark:bg-teal-400/10 dark:text-teal-200 dark:ring-teal-400/15 dark:hover:bg-teal-400/15"

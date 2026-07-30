@@ -4,7 +4,9 @@ import { useCallback, useMemo, useSyncExternalStore } from "react";
 import { getStorageKey } from "@/lib/date";
 import { clearPeriod, normalizeMonthData, setDaysStatus, updateDay } from "@/lib/payments";
 import { saveMonthWithHistory } from "@/lib/payment-history";
-import type { DayConfiguration, DayStatus, MonthData, Period } from "@/types/payment";
+import { PAYMENT_HISTORY_EVENT, PAYMENT_HISTORY_KEY } from "@/lib/payment-history";
+import { applyBulkUpdate, clearCalendarDays, duplicateMonthData } from "@/lib/data-actions";
+import type { BulkDayUpdate, DayConfiguration, DayStatus, MonthData, Period, UndoAction } from "@/types/payment";
 
 export const PAYMENT_STORAGE_EVENT = "quinzena-payments-change";
 
@@ -69,6 +71,32 @@ export function useMonthPayment(year: number, month: number) {
     }
   }, [month, storageKey, year]);
 
+  const clearRange = useCallback((days: number[], action: string): UndoAction | null => {
+    const current = readMonthData(year, month, window.localStorage.getItem(storageKey));
+    const updated = clearCalendarDays(current, days, year, month);
+    const undo: UndoAction = {
+      id: crypto.randomUUID(),
+      timestamp: new Date().toISOString(),
+      year,
+      month,
+      previousState: current,
+      previousHistory: window.localStorage.getItem(PAYMENT_HISTORY_KEY)
+    };
+    if (!saveMonthWithHistory(year, month, current, updated, action)) return null;
+    window.dispatchEvent(new Event(PAYMENT_STORAGE_EVENT));
+    return undo;
+  }, [month, storageKey, year]);
+
+  const undoClear = useCallback((undo: UndoAction) => {
+    if (undo.year !== year || undo.month !== month) return false;
+    window.localStorage.setItem(storageKey, JSON.stringify(undo.previousState));
+    if (undo.previousHistory === null) window.localStorage.removeItem(PAYMENT_HISTORY_KEY);
+    else window.localStorage.setItem(PAYMENT_HISTORY_KEY, undo.previousHistory);
+    window.dispatchEvent(new Event(PAYMENT_HISTORY_EVENT));
+    window.dispatchEvent(new Event(PAYMENT_STORAGE_EVENT));
+    return true;
+  }, [month, storageKey, year]);
+
   const saveDayConfiguration = useCallback((isoDate: string, configuration: DayConfiguration | null) => {
     const current = readMonthData(year, month, window.localStorage.getItem(storageKey));
     const daySettings = { ...current.daySettings };
@@ -80,11 +108,38 @@ export function useMonthPayment(year: number, month: number) {
     }
   }, [month, storageKey, year]);
 
+  const updateManyDays = useCallback((days: number[], update: BulkDayUpdate) => {
+    const current = readMonthData(year, month, window.localStorage.getItem(storageKey));
+    const updated = applyBulkUpdate(current, days, year, month, update);
+    if (saveMonthWithHistory(year, month, current, updated, `Edição em lote de ${days.length} dia(s)`)) window.dispatchEvent(new Event(PAYMENT_STORAGE_EVENT));
+  }, [month, storageKey, year]);
+
+  const duplicatePreviousMonth = useCallback(() => {
+    const previousDate = new Date(year, month - 2, 1);
+    const previousYear = previousDate.getFullYear();
+    const previousMonth = previousDate.getMonth() + 1;
+    const previousKey = getStorageKey(previousYear, previousMonth);
+    const rawPrevious = window.localStorage.getItem(previousKey);
+    if (!rawPrevious) return false;
+    const source = readMonthData(previousYear, previousMonth, rawPrevious);
+    const current = readMonthData(year, month, window.localStorage.getItem(storageKey));
+    const copied = duplicateMonthData(source, normalizeMonthData(year, month), year, month);
+    if (saveMonthWithHistory(year, month, current, copied, `Cópia de ${String(previousMonth).padStart(2, "0")}/${previousYear}`)) {
+      window.dispatchEvent(new Event(PAYMENT_STORAGE_EVENT));
+      return true;
+    }
+    return false;
+  }, [month, storageKey, year]);
+
   return {
     data,
     cycleDay,
     setDays,
     clearDays,
-    saveDayConfiguration
+    clearRange,
+    undoClear,
+    saveDayConfiguration,
+    updateManyDays,
+    duplicatePreviousMonth
   };
 }

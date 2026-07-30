@@ -11,23 +11,23 @@ import { MONTHS } from "@/lib/constants";
 import { formatCurrency } from "@/lib/format";
 import { summarizeMonth } from "@/lib/payments";
 import type { PaymentHistoryEntry } from "@/lib/payment-history";
+import type { SavedMonth } from "@/types/payment";
+import { matchesSavedMonth } from "@/lib/data-actions";
+
+type HistoryFilter = "V" | "M" | "O" | "absence" | "holiday";
 
 export default function HistoryPage() {
   const months = useSavedMonths();
   const { rates } = usePaymentSettings();
   const { entries, restore } = usePaymentHistory();
   const [search, setSearch] = useState("");
+  const [filters, setFilters] = useState<HistoryFilter[]>([]);
   const [restoredId, setRestoredId] = useState<string | null>(null);
   const filteredMonths = useMemo(() => {
     const term = search.trim().toLocaleLowerCase("pt-BR");
     if (!term) return months;
-    return months.filter((month) =>
-      new Intl.DateTimeFormat("pt-BR", { month: "long", year: "numeric" })
-        .format(new Date(month.year, month.month - 1))
-        .toLocaleLowerCase("pt-BR")
-        .includes(term)
-    );
-  }, [months, search]);
+    return months.filter((month) => matchesHistoryMonth(month, term, filters));
+  }, [filters, months, search]);
 
   return (
     <AppShell>
@@ -75,8 +75,16 @@ export default function HistoryPage() {
         {months.length > 0 ? (
           <label className="relative block">
             <span className="sr-only">Buscar no histórico</span>
-            <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Buscar por mês ou ano..." className="h-12 w-full rounded-2xl border border-slate-200 bg-white px-5 text-sm font-semibold outline-none transition focus:border-teal-500 focus:ring-4 focus:ring-teal-500/10 dark:border-slate-800 dark:bg-slate-900" />
+            <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Buscar mês, ano, motivo, observação ou feriado..." className="h-12 w-full rounded-2xl border border-slate-200 bg-white px-5 text-sm font-semibold outline-none transition focus:border-teal-500 focus:ring-4 focus:ring-teal-500/10 dark:border-slate-800 dark:bg-slate-900" />
           </label>
+        ) : null}
+        {months.length > 0 ? (
+          <div className="flex flex-wrap gap-2" aria-label="Filtros do histórico">
+            {([["V", "✓ Inteiro"], ["M", "½ Meio"], ["O", "— Folga"], ["absence", "! Falta"], ["holiday", "★ Feriado"]] as const).map(([value, label]) => {
+              const active = filters.includes(value);
+              return <button key={value} type="button" aria-pressed={active} onClick={() => setFilters((current) => active ? current.filter((item) => item !== value) : [...current, value])} className={`min-h-10 rounded-xl border px-3 text-sm font-bold focus-visible:ring-4 focus-visible:ring-teal-500/20 ${active ? "border-teal-600 bg-teal-600 text-white" : "border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-900"}`}>{label}</button>;
+            })}
+          </div>
         ) : null}
 
         {filteredMonths.length > 0 ? (
@@ -97,6 +105,11 @@ export default function HistoryPage() {
       </section>
     </AppShell>
   );
+}
+
+function matchesHistoryMonth(month: SavedMonth, term: string, filters: HistoryFilter[]) {
+  const label = `${new Intl.DateTimeFormat("pt-BR", { month: "long", year: "numeric" }).format(new Date(month.year, month.month - 1))} ${month.year}`;
+  return matchesSavedMonth(month.data, label, term, filters);
 }
 
 function HistoryVersion({

@@ -1,5 +1,7 @@
 import { getStorageKey } from "@/lib/date";
 import type { MonthData } from "@/types/payment";
+import { DEFAULT_PAYMENT_SETTINGS } from "@/lib/constants";
+import { getEffectiveRates, summarizeMonth } from "@/lib/payments";
 
 export const PAYMENT_HISTORY_KEY = "quinzena-payment-history-v1";
 export const PAYMENT_HISTORY_EVENT = "quinzena-payment-history-change";
@@ -12,6 +14,12 @@ export type PaymentHistoryEntry = {
   month: number;
   action: string;
   before: MonthData;
+  summary?: {
+    total: number;
+    workedDays: number;
+    absences: number;
+    holidays: number;
+  };
 };
 
 export function readPaymentHistory(): PaymentHistoryEntry[] {
@@ -38,7 +46,8 @@ export function saveMonthWithHistory(
     year,
     month,
     action,
-    before
+    before,
+    summary: createHistoricalSummary(after, year, month)
   };
   const history = [entry, ...readPaymentHistory()].slice(0, MAX_HISTORY_ENTRIES);
 
@@ -46,6 +55,22 @@ export function saveMonthWithHistory(
   window.localStorage.setItem(getStorageKey(year, month), JSON.stringify(after));
   window.dispatchEvent(new Event(PAYMENT_HISTORY_EVENT));
   return true;
+}
+
+function createHistoricalSummary(data: MonthData, year: number, month: number) {
+  let settings = DEFAULT_PAYMENT_SETTINGS;
+  try {
+    const saved = JSON.parse(window.localStorage.getItem("quinzena-payment-settings") ?? "null");
+    if (saved && typeof saved === "object") settings = { ...DEFAULT_PAYMENT_SETTINGS, ...saved };
+  } catch {}
+  const calculated = summarizeMonth(data, getEffectiveRates(settings), year, month);
+  const configurations = Object.values(data.daySettings);
+  return {
+    total: calculated.monthlyTotal,
+    workedDays: calculated.first.workedDays + calculated.second.workedDays,
+    absences: configurations.filter((configuration) => configuration.workStatus === "absence").length,
+    holidays: configurations.filter((configuration) => configuration.holiday?.isHoliday).length
+  };
 }
 
 export function restoreHistoryEntry(entry: PaymentHistoryEntry, current: MonthData) {

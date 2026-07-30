@@ -37,6 +37,7 @@ export function AppShell({ children }: AppShellProps) {
             >
               Histórico
             </Link>
+            <Link href="/annual" className="hidden h-11 items-center justify-center rounded-xl border border-slate-200 bg-white/80 px-4 text-sm font-semibold text-slate-700 shadow-sm transition hover:border-teal-300 hover:text-teal-700 dark:border-slate-800 dark:bg-slate-900/80 dark:text-slate-200 md:inline-flex">Anual</Link>
             <button
               type="button"
               onClick={toggleTheme}

@@ -70,6 +70,7 @@ function buildDayEntries(year: number, month: number, data: MonthData, rates: Pa
       const configuration = data.daySettings[iso];
       const automaticHoliday = getBrazilianHoliday(year, month, day);
       const details = [
+        configuration?.observation ? `Observação: ${configuration.observation}` : "",
         configuration?.workStatus === "absence" ? `Falta${configuration.absence?.reason ? ` — Motivo: ${configuration.absence.reason}` : ""}` : "",
         automaticHoliday || configuration?.holiday?.isHoliday ? `Feriado: ${configuration?.holiday?.name ?? automaticHoliday?.name}${configuration?.holiday ? ` — Pagamento: ${configuration.holiday.paymentType}` : ""}` : "",
         configuration?.valueOverride ? `Alteração: ${configuration.valueOverride.type} ${configuration.valueOverride.value ?? 0}` : ""

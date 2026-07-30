@@ -30,6 +30,7 @@ export function DayConfigurationModal({ year, month, day, status, rates, holiday
   const [holidayCustom, setHolidayCustom] = useState(String(initialConfiguration?.holiday?.customValue ?? ""));
   const [overrideType, setOverrideType] = useState(initialConfiguration?.valueOverride?.type ?? "default");
   const [overrideValue, setOverrideValue] = useState(String(initialConfiguration?.valueOverride?.value ?? ""));
+  const [observation, setObservation] = useState(initialConfiguration?.observation ?? "");
   const isHoliday = Boolean(holidayName || initialConfiguration?.holiday?.isHoliday);
 
   useEffect(() => {
@@ -52,6 +53,7 @@ export function DayConfigurationModal({ year, month, day, status, rates, holiday
 
   const configuration = useMemo<DayConfiguration>(() => ({
     workStatus,
+    observation: observation.trim() || undefined,
     absence: workStatus === "absence" ? {
       paymentType: absenceType,
       reason: reason.trim() || undefined,
@@ -66,13 +68,14 @@ export function DayConfigurationModal({ year, month, day, status, rates, holiday
     } : undefined,
     valueOverride: overrideType === "default" ? undefined : { type: overrideType, value: numeric(overrideValue) },
     updatedAt: new Date().toISOString()
-  }), [absenceDiscount, absenceType, holidayCustom, holidayName, holidayPayment, holidayWorked, initialConfiguration?.holiday?.name, isHoliday, overrideType, overrideValue, reason, workStatus]);
+  }), [absenceDiscount, absenceType, holidayCustom, holidayName, holidayPayment, holidayWorked, initialConfiguration?.holiday?.name, isHoliday, observation, overrideType, overrideValue, reason, workStatus]);
 
   const resultingStatus = workStatus === "absence" ? status : workToStatus(workStatus);
   const baseValue = resultingStatus === "V" ? rates.fullDay : resultingStatus === "M" ? rates.halfDay : 0;
   const calculated = calculateDayValue(resultingStatus, configuration, rates);
   const errors = {
     reason: reason.length > 300 ? "Use no máximo 300 caracteres." : "",
+    observation: observation.length > 500 ? "Use no máximo 500 caracteres." : "",
     absenceDiscount: absenceType === "custom_discount" && absenceDiscount === "" ? "Informe o valor do desconto." : absenceType === "custom_discount" && (numeric(absenceDiscount) < 0 || numeric(absenceDiscount) > rates.fullDay) ? `O desconto deve ficar entre R$ 0,00 e ${formatCurrency(rates.fullDay)}.` : "",
     holidayCustom: isHoliday && holidayPayment === "custom" && numeric(holidayCustom) < 0 ? "Informe um valor válido." : isHoliday && holidayPayment === "custom" && holidayCustom === "" ? "Informe o valor personalizado." : "",
     override: overrideType !== "default" && overrideValue === "" ? "Informe um valor." : overrideType === "discount" && numeric(overrideValue) > calculateDayValue(resultingStatus, { ...configuration, valueOverride: undefined }, rates) ? "O desconto não pode superar o valor disponível." : ""
@@ -122,10 +125,18 @@ export function DayConfigurationModal({ year, month, day, status, rates, holiday
             <Select label="Regra de valor" value={overrideType} onChange={setOverrideType} options={[["default", "Usar valor padrão"], ["final_value", "Definir valor final"], ["addition", "Adicionar acréscimo"], ["discount", "Aplicar desconto"]]} />
             {overrideType !== "default" ? <MoneyInput label={{ final_value: "Valor final do dia", addition: "Valor do acréscimo", discount: "Valor do desconto" }[overrideType]} value={overrideValue} onChange={setOverrideValue} error={errors.override} /> : null}
           </section>
+
+          <section className="rounded-2xl border border-slate-200 p-4 dark:border-slate-700">
+            <label className="block text-sm font-bold">
+              Observação geral
+              <textarea value={observation} maxLength={500} onChange={(event) => setObservation(event.target.value)} placeholder="Ex.: Cliente pediu hora extra." className="mt-2 min-h-28 w-full rounded-xl border border-slate-200 bg-white p-3 outline-none focus:ring-4 focus:ring-teal-500/15 dark:border-slate-700 dark:bg-slate-900" />
+              <span className="mt-1 flex justify-between text-xs font-semibold text-slate-500"><span>{errors.observation}</span><span>{observation.length}/500</span></span>
+            </label>
+          </section>
         </div>
 
         <footer className="grid grid-cols-2 gap-2 border-t border-slate-200 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-950 sm:flex sm:justify-end">
-          <button type="button" onClick={() => { setWorkStatus(statusToWork(status)); setReason(""); setAbsenceType("unpaid"); setAbsenceDiscount(""); setHolidayWorked("not_worked"); setHolidayPayment("unpaid"); setHolidayCustom(""); setOverrideType("default"); setOverrideValue(""); }} className="min-h-11 rounded-xl px-4 text-sm font-bold text-slate-600">Restaurar padrão</button>
+          <button type="button" onClick={() => { setWorkStatus(statusToWork(status)); setReason(""); setAbsenceType("unpaid"); setAbsenceDiscount(""); setHolidayWorked("not_worked"); setHolidayPayment("unpaid"); setHolidayCustom(""); setOverrideType("default"); setOverrideValue(""); setObservation(""); }} className="min-h-11 rounded-xl px-4 text-sm font-bold text-slate-600">Restaurar padrão</button>
           <button type="button" onClick={onClose} className="min-h-11 rounded-xl border border-slate-200 px-4 text-sm font-bold dark:border-slate-700">Cancelar</button>
           <button type="button" disabled={!valid} onClick={() => onSave(resultingStatus, configuration)} className="col-span-2 min-h-11 rounded-xl bg-slate-950 px-5 text-sm font-black text-white disabled:opacity-40 dark:bg-white dark:text-slate-950">Salvar</button>
         </footer>
