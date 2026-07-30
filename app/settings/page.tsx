@@ -16,7 +16,7 @@ export default function SettingsPage() {
           <p className="text-sm font-black uppercase tracking-[0.18em] text-teal-700 dark:text-teal-300">Configurações</p>
           <h2 className="mt-2 text-2xl font-black tracking-tight sm:text-3xl">Valores de pagamento</h2>
           <p className="mb-8 mt-2 text-sm font-medium text-slate-500 dark:text-slate-400">As alterações recalculam imediatamente a calculadora, o histórico e as exportações.</p>
-          <PaymentSettingsForm key={JSON.stringify(settings)} initialValues={settings} onSave={(values) => { save(values); router.push("/"); }} onCancel={() => router.back()} />
+          <PaymentSettingsForm key={JSON.stringify(settings)} initialValues={settings} onSave={(values) => { save(values); router.push("/calculator"); }} onCancel={() => router.back()} />
         </section>
         <BackupManager />
       </div>

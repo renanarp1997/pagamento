@@ -11,7 +11,7 @@ export default function SetupPage() {
 
   function continueToCalculator(values: PaymentSettings) {
     save(values);
-    router.push("/");
+    router.push("/calculator");
   }
 
   if (!isReady) {

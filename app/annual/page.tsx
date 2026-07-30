@@ -46,7 +46,7 @@ export default function AnnualPage() {
             <div><p className="text-sm font-black uppercase tracking-[0.18em] text-teal-700 dark:text-teal-300">Histórico consolidado</p><h2 className="mt-1 text-3xl font-black">Resumo anual</h2></div>
             <div className="grid w-full grid-cols-2 gap-2 sm:flex sm:w-auto">
               <select aria-label="Ano do resumo" value={year} onChange={(event) => setYear(Number(event.target.value))} className="h-12 min-w-0 rounded-xl border border-slate-200 bg-white px-3 font-black dark:border-slate-700 dark:bg-slate-950 sm:px-4">{(years.length ? years : [year]).map((item) => <option key={item}>{item}</option>)}</select>
-              <Link href="/" className="inline-flex h-12 items-center justify-center rounded-xl bg-slate-950 px-4 font-black text-white dark:bg-white dark:text-slate-950">Voltar</Link>
+              <Link href="/calculator" className="inline-flex h-12 items-center justify-center rounded-xl bg-slate-950 px-4 font-black text-white dark:bg-white dark:text-slate-950">Voltar</Link>
             </div>
           </div>
         </header>

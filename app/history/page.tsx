@@ -38,7 +38,7 @@ export default function HistoryPage() {
             <h2 className="mt-1 text-2xl font-black text-slate-950 dark:text-white sm:text-3xl">Histórico financeiro</h2>
             <p className="mt-2 text-sm font-medium text-slate-500 dark:text-slate-400">Consulte e compare seus pagamentos anteriores.</p>
           </div>
-          <Link href="/" className="inline-flex min-h-12 items-center justify-center rounded-xl bg-slate-950 px-5 py-3 text-center text-sm font-black text-white shadow-lg shadow-slate-900/15 transition hover:-translate-y-0.5 hover:bg-teal-700 dark:bg-white dark:text-slate-950 dark:hover:bg-teal-200">Voltar à calculadora</Link>
+          <Link href="/calculator" className="inline-flex min-h-12 items-center justify-center rounded-xl bg-slate-950 px-5 py-3 text-center text-sm font-black text-white shadow-lg shadow-slate-900/15 transition hover:-translate-y-0.5 hover:bg-teal-700 dark:bg-white dark:text-slate-950 dark:hover:bg-teal-200">Voltar à calculadora</Link>
         </div>
 
         {entries.length > 0 ? (
